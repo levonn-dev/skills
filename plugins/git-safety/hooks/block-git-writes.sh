@@ -5,6 +5,20 @@
 
 set -uo pipefail
 
+# Force byte-mode string handling. grep -ob emits byte offsets, but bash
+# ${var:pos} uses Unicode characters by default. Multi-byte chars in the
+# command string (e.g. accented paths, CJK) would shift the offsets and
+# let writes slip through. LC_ALL=C makes everything byte-aligned.
+export LC_ALL=C
+
+# Hard dependency. If jq is missing, the command-extraction below would
+# silently produce an empty string and we'd fail open. Refuse all bash
+# instead so the failure is surfaced.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "git-safety: jq not found. Install jq to enforce git write blocking." >&2
+  exit 2
+fi
+
 # ---- read input ----
 input=$(cat)
 command=$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)
@@ -41,6 +55,11 @@ is_conditional_read_mode() {
       if has_flag "$args" '^(-d|-D|-m|-M|-c|-C|--copy|--move|--delete|--track|--set-upstream-to|-u|--unset-upstream)$'; then
         return 1
       fi
+      # If a query flag is present, any positional arg is the query target,
+      # not a branch name being created. Allow.
+      if has_flag "$args" '^(-l|--list|-v|-vv|-a|--all|-r|--remotes|--show-current|--contains|--no-contains|--merged|--no-merged|--points-at|--column)$'; then
+        return 0
+      fi
       for tok in $args; do
         case "$tok" in
           -*) ;;
@@ -52,6 +71,11 @@ is_conditional_read_mode() {
     tag)
       if has_flag "$args" '^(-d|-a|-s|-f|--force|--delete|--sign|--annotate)$'; then
         return 1
+      fi
+      # Same reasoning as branch: query flag + positional = query target.
+      # `-n` and `-n<num>` print N lines of annotation (read-only).
+      if has_flag "$args" '^(-l|--list|--contains|--no-contains|--merged|--no-merged|--points-at|--verify|-n[0-9]*)$'; then
+        return 0
       fi
       for tok in $args; do
         case "$tok" in

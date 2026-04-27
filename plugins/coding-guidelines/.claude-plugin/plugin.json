@@ -1,0 +1,6 @@
+{
+  "name": "coding-guidelines",
+  "version": "0.1.0",
+  "description": "Behavioral guidelines for clean, surgical, goal-driven coding",
+  "author": { "name": "levonn-dev", "email": "levonn@levonn.org" }
+}

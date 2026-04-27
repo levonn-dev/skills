@@ -1,0 +1,6 @@
+{
+  "name": "git-safety",
+  "version": "0.1.0",
+  "description": "Prevents Claude from running git commands that modify repo state",
+  "author": { "name": "levonn-dev", "email": "levonn@levonn.org" }
+}

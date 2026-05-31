@@ -250,6 +250,7 @@ strip_quotes() {
       i=$((i + 1)); continue
     fi
     if [ "$in_double" = 1 ]; then
+      # shellcheck disable=SC1003  # '\' is a literal backslash, not an escaped quote
       if [ "$ch" = '\' ] && [ "$((i + 1))" -lt "$n" ]; then
         i=$((i + 2)); continue
       fi

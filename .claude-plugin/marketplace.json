@@ -3,20 +3,32 @@
   "owner": { "name": "levonn-dev", "email": "levonn@levonn.org" },
   "metadata": {
     "description": "Personal skills marketplace",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "coding-guidelines",
       "source": "./plugins/coding-guidelines",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "description": "Behavioral guidelines for clean, surgical, goal-driven coding"
     },
     {
       "name": "git-safety",
       "source": "./plugins/git-safety",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Prevents Claude from running git write commands (skill + PreToolUse hook)"
+    },
+    {
+      "name": "manual-work-coordination",
+      "source": "./plugins/manual-work-coordination",
+      "version": "0.1.0",
+      "description": "Stop cleanly when the user takes over a task by hand; don't redo, override, or re-verify their manual work"
+    },
+    {
+      "name": "docs-sync",
+      "source": "./plugins/docs-sync",
+      "version": "0.1.0",
+      "description": "Reminds you to update relevant documentation after code and non-code changes (skill + Stop hook)"
     }
   ]
 }

@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # jq and shellcheck are preinstalled on ubuntu-latest runners.
+
+      - name: Validate JSON
+        run: |
+          set -uo pipefail
+          rc=0
+          while IFS= read -r f; do
+            if ! jq empty "$f" >/dev/null 2>&1; then
+              echo "::error file=$f::invalid JSON"
+              rc=1
+            fi
+          done < <(git ls-files '*.json')
+          exit $rc
+
+      - name: Hook test suites
+        run: |
+          set -euo pipefail
+          bash plugins/git-safety/tests/run.sh
+          bash plugins/docs-sync/tests/run.sh
+
+      - name: ShellCheck
+        run: shellcheck plugins/*/hooks/*.sh plugins/*/tests/*.sh
+
+      - name: Marketplace integrity
+        run: |
+          set -uo pipefail
+          rc=0
+          # Every plugin listed in the marketplace must have a matching dir and a
+          # plugin.json whose name and version agree with the marketplace entry.
+          while IFS=$'\t' read -r name source version; do
+            dir="${source#./}"
+            if [ ! -d "$dir" ]; then
+              echo "::error::marketplace plugin '$name': missing dir $dir"
+              rc=1
+              continue
+            fi
+            pj="$dir/.claude-plugin/plugin.json"
+            if [ ! -f "$pj" ]; then
+              echo "::error::marketplace plugin '$name': missing $pj"
+              rc=1
+              continue
+            fi
+            pj_name="$(jq -r '.name' "$pj")"
+            if [ "$pj_name" != "$name" ]; then
+              echo "::error::name mismatch: marketplace '$name' vs plugin.json '$pj_name'"
+              rc=1
+            fi
+            pj_version="$(jq -r '.version' "$pj")"
+            if [ "$pj_version" != "$version" ]; then
+              echo "::error::version drift for '$name': marketplace '$version' vs plugin.json '$pj_version'"
+              rc=1
+            fi
+          done < <(jq -r '.plugins[] | [.name, .source, .version] | @tsv' .claude-plugin/marketplace.json)
+          exit $rc

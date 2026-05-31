@@ -1,0 +1,6 @@
+{
+  "name": "docs-sync",
+  "version": "0.1.0",
+  "description": "Reminds you to update relevant documentation after code and non-code changes (skill + Stop hook)",
+  "author": { "name": "levonn-dev", "email": "levonn@levonn.org" }
+}

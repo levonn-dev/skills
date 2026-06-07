@@ -3,7 +3,8 @@
   "owner": { "name": "levonn-dev", "email": "levonn@levonn.org" },
   "metadata": {
     "description": "Personal skills marketplace",
-    "version": "0.2.0"
+    "version": "0.2.0",
+    "license": "MIT"
   },
   "plugins": [
     {

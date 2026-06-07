@@ -2,5 +2,6 @@
   "name": "manual-work-coordination",
   "version": "0.1.0",
   "description": "Stop cleanly when the user takes over a task by hand; don't redo, override, or re-verify their manual work",
-  "author": { "name": "levonn-dev", "email": "levonn@levonn.org" }
+  "author": { "name": "levonn-dev", "email": "levonn@levonn.org" },
+  "license": "MIT"
 }

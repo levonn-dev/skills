@@ -48,3 +48,7 @@ bash plugins/docs-sync/tests/run.sh
 ```
 
 CI (`.github/workflows/ci.yml`) runs both suites plus JSON validation, ShellCheck, and a marketplace integrity check on every push to `main` and on pull requests.
+
+## License
+
+[MIT](LICENSE) © levonn-dev

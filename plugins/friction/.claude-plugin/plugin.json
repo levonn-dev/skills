@@ -1,0 +1,7 @@
+{
+  "name": "friction",
+  "version": "0.1.0",
+  "description": "Log small frictions to FRICTION.md in the moment; /friction:review sweeps the session for missed ones",
+  "author": { "name": "levonn-dev", "email": "levonn@levonn.org" },
+  "license": "MIT"
+}

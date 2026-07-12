@@ -53,3 +53,12 @@ Themes 1 to 4 restate principles Andrej Karpathy stated about common LLM coding 
 - If one exists with a matching target, use it instead of invoking the underlying tool (mvn, gradle, go, npm, cargo, pytest, etc.) by hand.
 - The task runner encodes flags, environment, and ordering that the raw command omits. Bypassing it produces results that don't match how the project actually builds and runs.
 - Fall back to the raw tool only when no target covers what you need, and say why you are bypassing the runner.
+
+## 7. Write code like a human will maintain it
+
+- Optimize for the next reader. Code is read far more often than it is written.
+- Boring and idiomatic beats clever. If a line needs decoding, rewrite it as the obvious version.
+- Control flow should read top to bottom: early returns over deep nesting, related logic kept together.
+- Comments explain why, not what. No narration of obvious code. Update or delete comments when the code they describe changes.
+- Apply DRY and SOLID with judgment, not as dogma. Extract shared code when duplication is real and repeated, not to pre-empt it. Theme 2 still wins: three similar lines beat a premature framework.
+- The test: a maintainer with none of this conversation's context should understand the code from the code alone.

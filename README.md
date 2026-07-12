@@ -8,6 +8,7 @@ Personal Claude Code plugin marketplace.
 - **git-safety** — advisory skill + `PreToolUse` hook that hard-denies git write commands. Read-only git is unaffected.
 - **manual-work-coordination** — guidance to stop cleanly when you take a task over by hand, and to trust your manual work on resume instead of redoing or re-verifying it.
 - **docs-sync** — skill + `Stop` hook that reminds you to update relevant documentation after code and non-code changes. The hook nudges when a turn ends with file changes but no docs touched; read-only git, loop-safe.
+- **friction** — skill + `SessionStart` hook that logs small frictions (retries, flaky commands, misleading errors, gotchas) to `FRICTION.md` in the moment; `/friction:review` sweeps the session for missed ones.
 
 ## Install
 

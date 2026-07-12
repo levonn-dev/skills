@@ -3,14 +3,14 @@
   "owner": { "name": "levonn-dev", "email": "levonn@levonn.org" },
   "metadata": {
     "description": "Personal skills marketplace",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "license": "MIT"
   },
   "plugins": [
     {
       "name": "coding-guidelines",
       "source": "./plugins/coding-guidelines",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Behavioral guidelines for clean, surgical, goal-driven coding"
     },
     {
@@ -30,6 +30,12 @@
       "source": "./plugins/docs-sync",
       "version": "0.1.0",
       "description": "Reminds you to update relevant documentation after code and non-code changes (skill + Stop hook)"
+    },
+    {
+      "name": "friction",
+      "source": "./plugins/friction",
+      "version": "0.1.0",
+      "description": "Log small frictions to FRICTION.md in the moment; /friction:review sweeps the session for missed ones"
     }
   ]
 }

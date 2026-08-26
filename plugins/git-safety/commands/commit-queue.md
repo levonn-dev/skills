@@ -43,9 +43,11 @@ Report the count ("14 files queued, 14 changed"). If anything prints, fix the ma
 Emit the queue as a numbered list of SEPARATE single-line commands, one per commit:
 
 ```
-git add -- path/a path/b && git commit -m "feat(scope): subject"
+git add -- path/a path/b && git commit -m 'feat(scope): subject'
 ```
 
-Never join commits into one multi-line `&& \` chain: a pasted chain can silently corrupt a subject or skip a line while the rest still runs. Quote any path with spaces or shell characters. Also write the same lines to `commit-queue.sh` next to the manifest and give the user its path, so they can run it with `bash` instead of pasting.
+Never join commits into one multi-line `&& \` chain: a pasted chain can silently corrupt a subject or skip a line while the rest still runs. Single-quote every subject so `!` and `$` survive an interactive shell (history expansion turns `feat!:` into "event not found"). Quote any path with spaces or shell characters.
+
+Also write the queue to `commit-queue.sh` next to the manifest and give the user its path, so they can run it with `bash` instead of pasting. In the script put `git add` and `git commit` on separate lines under `set -euo pipefail`; a failed `git add` inside an `&&` list does not stop the script, so later commits would land on top of a gap.
 
 Close with the verification step for the user: after replay, compare `git log --oneline -<N>` subjects against the queue and confirm `git status` is clean (apart from the not-queued list) before pushing.

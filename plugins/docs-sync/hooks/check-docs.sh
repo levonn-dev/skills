@@ -61,7 +61,7 @@ done <<< "$changes"
 
 [ "$substantive" -eq 1 ] && [ "$doc_changed" -eq 0 ] || exit 0
 
-reason="Docs check before finishing: this turn changed files on disk but touched no documentation (README, docs/, *.md, CHANGELOG, API specs). Identify any docs that describe the changed behavior, config, schema, or process and update them now. This applies to non-code changes too. If nothing needs updating, say so explicitly, then stop."
+reason="Docs check before finishing: this turn changed files on disk but touched no documentation (README, docs/, *.md, CHANGELOG, API specs, request collections, runbooks, dashboards, alert rules, test scripts). Identify any docs that describe the changed behavior, config, schema, or process and update them now. This applies to non-code changes too. If nothing needs updating, say so explicitly, then stop."
 
 jq -n --arg r "$reason" '{decision: "block", reason: $r}'
 exit 0

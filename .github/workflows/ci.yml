@@ -30,9 +30,10 @@ jobs:
           set -euo pipefail
           bash plugins/git-safety/tests/run.sh
           bash plugins/docs-sync/tests/run.sh
+          bash plugins/statusline/tests/run.sh
 
       - name: ShellCheck
-        run: shellcheck plugins/*/hooks/*.sh plugins/*/tests/*.sh
+        run: shellcheck plugins/*/hooks/*.sh plugins/*/tests/*.sh plugins/*/bin/*.sh
 
       - name: Marketplace integrity
         run: |

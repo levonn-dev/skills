@@ -59,3 +59,7 @@ Then, if helpful:
 - Describe what the command would do.
 - Explain why the user might want it.
 - Do not retry.
+
+## When the user wants commits
+
+Accumulate rather than refuse and stop: build the commit commands and hand them over. `/git-safety:commit-queue` does this for the whole working tree: every changed file in exactly one commit, partition verified against `git status`, single-line commands the user replays. Use it at review checkpoints and whenever implementation work leaves a multi-commit tree behind.

@@ -1,7 +1,7 @@
 {
   "name": "git-safety",
-  "version": "0.1.1",
-  "description": "Prevents Claude from running git commands that modify repo state",
+  "version": "0.2.0",
+  "description": "Prevents Claude from running git commands that modify repo state; /git-safety:commit-queue hands commits back as a verified queue",
   "author": { "name": "levonn-dev", "email": "levonn@levonn.org" },
   "license": "MIT"
 }

@@ -30,7 +30,8 @@ When something small gets in your way while working, log it to `FRICTION.md` at 
 - One or two sentences. Do not fix the friction unprompted.
 - Log proactively. Do not wait for the user to ask.
 
-## Review pass
+## Commands
 
-- `/friction:review` scans the session so far for unlogged frictions, dedupes against existing entries, and appends them
-- User-triggered only. Never run a review sweep unprompted.
+- `/friction:find` scans the session so far for unlogged frictions, dedupes against existing entries, and appends them
+- `/friction:review` walks the open entries by root cause and, with the user's approval, fixes, tracks, or drops each one, removes resolved entries
+- Both are user-triggered only. Never run a find sweep or a review unprompted.

@@ -1,6 +1,6 @@
 {
   "name": "statusline",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Managed Claude Code status line: /statusline:install wires it up once, a SessionStart hook keeps it in step with plugin updates",
   "author": { "name": "levonn-dev", "email": "levonn@levonn.org" },
   "license": "MIT"

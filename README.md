@@ -50,6 +50,7 @@ Bump `metadata.version` in `marketplace.json` when the catalog itself changes (a
 bash plugins/git-safety/tests/run.sh
 bash plugins/docs-sync/tests/run.sh
 bash plugins/statusline/tests/run.sh
+bash plugins/statusline/tests/render.sh
 ```
 
 CI (`.github/workflows/ci.yml`) runs the hook suites plus JSON validation, ShellCheck, and a marketplace integrity check on every push to `main` and on pull requests.

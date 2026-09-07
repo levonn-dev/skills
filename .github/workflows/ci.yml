@@ -31,6 +31,7 @@ jobs:
           bash plugins/git-safety/tests/run.sh
           bash plugins/docs-sync/tests/run.sh
           bash plugins/statusline/tests/run.sh
+          bash plugins/statusline/tests/render.sh
 
       - name: ShellCheck
         run: shellcheck plugins/*/hooks/*.sh plugins/*/tests/*.sh plugins/*/bin/*.sh

@@ -2,7 +2,7 @@
 # managed by statusline@levonn-dev-skills: synced to ~/.claude/statusline-command.sh at session start. Edit the plugin copy, not this file.
 
 # Claude Code status line:
-#   model | effort | stacked context bar + tokens/% | base/chat split | output style | k8s | cwd | git
+#   model | effort | stacked context bar + tokens/% | base/chat split | prompt cache | output style | k8s | cwd | git
 # Sections pack onto as many lines as the terminal width (COLUMNS) needs.
 
 input=$(cat)
@@ -18,6 +18,12 @@ used=$(echo      "$input" | jq -r '.context_window.used_percentage // empty')
 size=$(echo      "$input" | jq -r '.context_window.context_window_size // empty')
 total=$(echo     "$input" | jq -r '(.context_window.current_usage | .input_tokens + .cache_creation_input_tokens + .cache_read_input_tokens) // empty')
 transcript=$(echo "$input" | jq -r '.transcript_path // empty')
+pc_observed=$(echo "$input" | jq -r '.prompt_cache.caching_observed // empty')
+pc_warm=$(echo     "$input" | jq -r '.prompt_cache.warm // empty')
+pc_ttl=$(echo      "$input" | jq -r '.prompt_cache.ttl // empty')
+pc_expires=$(echo  "$input" | jq -r '.prompt_cache.expires_at // empty')
+pc_hit=$(echo      "$input" | jq -r '.prompt_cache.hit_ratio // empty')
+pc_recache=$(echo  "$input" | jq -r '.prompt_cache.recache_tokens_if_cold // empty')
 
 # Prefer used%; derive from remaining if only that is present.
 if [ -z "$used" ] && [ -n "$remaining" ]; then
@@ -62,6 +68,7 @@ fi
 # means more context consumed.
 SEGMENTS=20
 BASE_COLOR="${ESC}[38;2;110;140;190m"
+grey="${ESC}[38;2;180;180;180m"                  # numbers beside colored words
 
 # Segments a percentage fills, rounded and clamped to the bar.
 segments() {
@@ -113,7 +120,6 @@ if [ -n "$used" ]; then
   used_round=$(printf '%.0f' "$used")
   filled=$(segments "$used_round")
   gradient_color $(( filled > 0 ? filled - 1 : 0 ))
-  grey="${ESC}[38;2;180;180;180m"
   if [ -n "$total" ] && [ -n "$size" ]; then
     ctx_total="${grey}$(fmt_k "$total")/$(fmt_k "$size") ${used_round}%${ESC}[0m"
     if [ -n "$base" ]; then
@@ -151,6 +157,31 @@ if [ -n "$effort" ]; then
     *)      effort_color="${ESC}[38;5;252m" ;;
   esac
   effort_str="${effort_color}[${effort}]${ESC}[0m"
+fi
+
+# ── Prompt cache ──────────────────────────────────────────────────────────────
+# "cache <tokens> <hit%>": the tokens the next request re-caches if the cache
+# has gone cold, and the session's cache-read share of input. The word carries
+# the state: green while warm, yellow under a quarter of the lifetime left, grey
+# when cold. Shown once the payload has observed caching on the main conversation.
+cache_str=""
+if [ "$pc_observed" = "true" ] && [ -n "$pc_hit" ]; then
+  case "$pc_ttl" in 1h) ttl_s=3600 ;; *) ttl_s=300 ;; esac
+  cache_color="${ESC}[38;5;245m"                                # grey: cold
+  if [ "$pc_warm" = "true" ] && [ -n "$pc_expires" ]; then
+    left=$(( pc_expires - $(date +%s) ))
+    if [ "$left" -gt 0 ]; then
+      if [ $(( left * 4 )) -lt "$ttl_s" ]; then
+        cache_color="${ESC}[38;2;255;220;80m"                   # yellow: expiring
+      else
+        cache_color="${ESC}[38;2;120;220;120m"                  # green: warm
+      fi
+    fi
+  fi
+  recache="--"
+  [ -n "$pc_recache" ] && recache=$(fmt_k "$pc_recache")
+  hit=$(awk "BEGIN{printf \"%.0f\", $pc_hit * 100}")
+  cache_str="${cache_color}cache${ESC}[0m${grey} ${recache} ${hit}%${ESC}[0m"
 fi
 
 # ── Output style ───────────────────────────────────────────────────────────────
@@ -216,6 +247,7 @@ add() { seps+=("$1"); sections+=("$2"); }
 [ -n "$effort_str" ] && add "$sep" "$effort_str"
 add "$sep" "${ctx_bar} ${ctx_total}"
 [ -n "$ctx_split" ]  && add "$sep" "$ctx_split"
+[ -n "$cache_str" ]  && add "$sep" "$cache_str"
 [ -n "$style_str" ]  && add "$sep" "$style_str"
 loc_sep="$gsep"
 [ -n "$k8s_str" ]    && { add "$gsep" "$k8s_str"; loc_sep="$sep"; }

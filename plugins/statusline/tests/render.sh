@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test runner for the context section of statusline.sh. Feeds synthetic
+# Test runner for the context and prompt cache sections of statusline.sh. Feeds synthetic
 # status line payloads and temp transcripts through the script, with the base
 # cache pointed at a temp dir through the STATUSLINE_CACHE_DIR seam, and checks
 # the rendered label with ANSI colors stripped.
@@ -174,6 +174,55 @@ check "oversized_section_own_line" "$(printf '%s\n' "$out" | grep -qxF '██�
 # 20. No COLUMNS in the environment: one line, as when the width is unknown.
 out="$(payload "$tmp/t.jsonl" | render)"
 check "unknown_width_single_line" "$([ "$(printf '%s\n' "$out" | wc -l)" = "1" ] && echo 1 || echo 0)"
+
+# ── Prompt cache section ───────────────────────────────────────────────────────
+CACHE_GREEN=$'\033[38;2;120;220;120m'
+CACHE_YELLOW=$'\033[38;2;255;220;80m'
+CACHE_GREY=$'\033[38;5;245m'
+now=$(date +%s)
+
+# prompt_cache object: warm, ttl, expires_at (omit for null), hit_ratio, recache tokens (omit for null).
+pc() {
+  printf '{"caching_observed":true,"warm":%s,"ttl":"%s","expires_at":%s,"hit_ratio":%s,"recache_tokens_if_cold":%s}' "$1" "$2" "${3:-null}" "$4" "${5:-null}"
+}
+# Standard payload with the given prompt_cache object added.
+cache_payload() { payload "$tmp/t.jsonl" | jq -c --argjson pc "$1" '. + {prompt_cache: $pc}'; }
+
+# 21. Warm cache: "cache <recache tokens> <hit%>" after the split, before the directory.
+out="$(cache_payload "$(pc true 5m $((now + 240)) 0.91 112000)" | render)"
+check "cache_text_tokens_then_hit" "$([ "$(in_order "$out" "chat 16k 8%" "cache 112k 91%" "$tmp")" = "1" ] && echo 1 || echo 0)"
+
+# 22. Most of the lifetime left: the word is green.
+raw="$(cache_payload "$(pc true 5m $((now + 240)) 0.91 112000)" | "$SCRIPT")"
+check "cache_word_green_when_warm" "$([[ "$raw" == *"${CACHE_GREEN}cache"* ]] && echo 1 || echo 0)"
+
+# 23. Under a quarter of a 5m lifetime left: yellow.
+raw="$(cache_payload "$(pc true 5m $((now + 60)) 0.91 112000)" | "$SCRIPT")"
+check "cache_word_yellow_under_quarter_5m" "$([[ "$raw" == *"${CACHE_YELLOW}cache"* ]] && echo 1 || echo 0)"
+
+# 24. Under a quarter of a 1h lifetime left: yellow, where the same time left on 5m would be green.
+raw="$(cache_payload "$(pc true 1h $((now + 600)) 0.91 112000)" | "$SCRIPT")"
+check "cache_word_yellow_under_quarter_1h" "$([[ "$raw" == *"${CACHE_YELLOW}cache"* ]] && echo 1 || echo 0)"
+
+# 25. Cold: grey, text intact.
+raw="$(cache_payload "$(pc false 5m "" 0.91 112000)" | "$SCRIPT")"
+check "cache_word_grey_when_cold" "$([[ "$raw" == *"${CACHE_GREY}cache"* ]] && [[ "$(printf '%s' "$raw" | sed 's/\x1b\[[0-9;]*m//g')" == *"cache 112k 91%"* ]] && echo 1 || echo 0)"
+
+# 26. Warm flag still set but the expiry has passed: grey.
+raw="$(cache_payload "$(pc true 5m $((now - 5)) 0.91 112000)" | "$SCRIPT")"
+check "cache_word_grey_after_expiry" "$([[ "$raw" == *"${CACHE_GREY}cache"* ]] && echo 1 || echo 0)"
+
+# 27. Recache tokens unknown right after a compaction: dashes.
+out="$(cache_payload "$(pc true 5m $((now + 240)) 0.91)" | render)"
+check "cache_recache_unknown_shows_dashes" "$([[ "$out" == *"cache -- 91%"* ]] && echo 1 || echo 0)"
+
+# 28. Caching never observed on this provider: no section.
+out="$(cache_payload '{"caching_observed":false,"warm":false,"ttl":"5m","expires_at":null,"hit_ratio":null,"recache_tokens_if_cold":null}' | render)"
+check "cache_section_omitted_when_not_observed" "$([[ "$out" != *"cache "* ]] && echo 1 || echo 0)"
+
+# 29. Payload without a prompt_cache object: no section.
+out="$(payload "$tmp/t.jsonl" | render)"
+check "cache_section_omitted_without_object" "$([[ "$out" != *"cache "* ]] && echo 1 || echo 0)"
 
 echo
 echo "Passed: $pass / $((pass + fail))"

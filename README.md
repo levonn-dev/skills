@@ -11,7 +11,7 @@ Each plugin has its own README with what ships, install, and tests.
 - [manual-work-coordination](plugins/manual-work-coordination/README.md): stop cleanly when you take a task over by hand, and trust your manual work on resume instead of redoing or re-verifying it.
 - [docs-sync](plugins/docs-sync/README.md): skill + `Stop` hook that keeps documentation in step with changes, including request collections, test scripts, runbooks, dashboards, and alert rules. The hook nudges when a turn ends with file changes but no docs touched; read-only git, loop-safe.
 - [friction](plugins/friction/README.md): skill + `SessionStart` hook that logs small frictions (retries, flaky commands, misleading errors, gotchas) to `FRICTION.md` in the moment; `/friction:find` sweeps the session for missed ones; `/friction:review` walks the open entries by root cause and fixes, tracks, or drops each one.
-- [statusline](plugins/statusline/README.md): a managed status line (model, effort, context bar, kubectl context, cwd, git state). `/statusline:install` wires it into settings once; a `SessionStart` hook syncs the installed copy whenever the plugin updates.
+- [statusline](plugins/statusline/README.md): a managed status line (model, effort, context bar, prompt cache state, kubectl context, cwd, git state). `/statusline:install` wires it into settings once; a `SessionStart` hook syncs the installed copy whenever the plugin updates.
 
 ## Install
 

@@ -12,6 +12,8 @@ Each plugin has its own README with what ships, install, and tests.
 - [docs-sync](plugins/docs-sync/README.md): skill + `Stop` hook that keeps documentation in step with changes, including request collections, test scripts, runbooks, dashboards, and alert rules. The hook nudges when a turn ends with file changes but no docs touched; read-only git, loop-safe.
 - [friction](plugins/friction/README.md): skill + `SessionStart` hook that logs small frictions (retries, flaky commands, misleading errors, gotchas) to `FRICTION.md` in the moment; `/friction:find` sweeps the session for missed ones; `/friction:review` walks the open entries by root cause and fixes, tracks, or drops each one.
 - [statusline](plugins/statusline/README.md): a managed status line (model, effort, context bar, prompt cache state, kubectl context, cwd, git state). `/statusline:install` wires it into settings once; a `SessionStart` hook syncs the installed copy whenever the plugin updates.
+- [trim-output](plugins/trim-output/README.md): `PreToolUse` hook that trims the output of bare test, build, and typecheck commands (`go test`, `npm test`, `tsc`, and others) to failure blocks and the tail before it reaches the model; the runner's exit status is preserved.
+- [delegation](plugins/delegation/README.md): pins cheaper model aliases onto subagent dispatches that name no model, per environment; ships its own delegation agents; `/delegation:configure` sets pins once per machine and `/delegation:report` shows what each subagent ran on.
 
 ## Install
 
@@ -51,6 +53,14 @@ bash plugins/git-safety/tests/run.sh
 bash plugins/docs-sync/tests/run.sh
 bash plugins/statusline/tests/run.sh
 bash plugins/statusline/tests/render.sh
+bash plugins/trim-output/tests/run.sh
+bash plugins/trim-output/tests/filter.sh
+bash plugins/delegation/tests/provider.sh
+bash plugins/delegation/tests/run.sh
+bash plugins/delegation/tests/log.sh
+bash plugins/delegation/tests/note.sh
+bash plugins/delegation/tests/config.sh
+bash plugins/delegation/tests/agents.sh
 ```
 
 CI (`.github/workflows/ci.yml`) runs the hook suites plus JSON validation, ShellCheck, and a marketplace integrity check on every push to `main` and on pull requests.

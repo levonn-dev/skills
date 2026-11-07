@@ -32,6 +32,14 @@ jobs:
           bash plugins/docs-sync/tests/run.sh
           bash plugins/statusline/tests/run.sh
           bash plugins/statusline/tests/render.sh
+          bash plugins/trim-output/tests/run.sh
+          bash plugins/trim-output/tests/filter.sh
+          bash plugins/delegation/tests/provider.sh
+          bash plugins/delegation/tests/run.sh
+          bash plugins/delegation/tests/log.sh
+          bash plugins/delegation/tests/note.sh
+          bash plugins/delegation/tests/config.sh
+          bash plugins/delegation/tests/agents.sh
 
       - name: ShellCheck
         run: shellcheck plugins/*/hooks/*.sh plugins/*/tests/*.sh plugins/*/bin/*.sh

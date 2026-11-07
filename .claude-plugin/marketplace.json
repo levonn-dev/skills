@@ -3,7 +3,7 @@
   "owner": { "name": "levonn-dev", "email": "levonn@levonn.org" },
   "metadata": {
     "description": "Personal skills marketplace",
-    "version": "0.4.0",
+    "version": "0.6.0",
     "license": "MIT"
   },
   "plugins": [
@@ -40,8 +40,20 @@
     {
       "name": "statusline",
       "source": "./plugins/statusline",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "description": "Managed Claude Code status line: /statusline:install wires it up once, a SessionStart hook keeps it in step with plugin updates"
+    },
+    {
+      "name": "trim-output",
+      "source": "./plugins/trim-output",
+      "version": "0.1.0",
+      "description": "PreToolUse hook that trims noisy test, build, and typecheck output to failures and summary before it reaches the model"
+    },
+    {
+      "name": "delegation",
+      "source": "./plugins/delegation",
+      "version": "0.1.0",
+      "description": "Pins cheaper model aliases onto blank-model subagent dispatches per environment, ships six delegation agents, and reports what each subagent ran on; /delegation:configure sets pins once per machine"
     }
   ]
 }

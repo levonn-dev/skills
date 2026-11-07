@@ -1,0 +1,7 @@
+{
+  "name": "trim-output",
+  "version": "0.1.0",
+  "description": "PreToolUse hook that trims noisy test, build, and typecheck output to failures and summary before it reaches the model",
+  "author": { "name": "levonn-dev", "email": "levonn@levonn.org" },
+  "license": "MIT"
+}

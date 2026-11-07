@@ -160,10 +160,11 @@ if [ -n "$effort" ]; then
 fi
 
 # ── Prompt cache ──────────────────────────────────────────────────────────────
-# "cache <tokens> <hit%>": the tokens the next request re-caches if the cache
-# has gone cold, and the session's cache-read share of input. The word carries
-# the state: green while warm, yellow under a quarter of the lifetime left, grey
-# when cold. Shown once the payload has observed caching on the main conversation.
+# "cache [<ttl>] <tokens> <hit%>": the lifetime from the payload, the tokens
+# the next request re-caches if the cache has gone cold, and the session's
+# cache-read share of input. The word carries the state: green while warm,
+# yellow under a quarter of the lifetime left, grey when cold. Shown once the
+# payload has observed caching on the main conversation.
 cache_str=""
 if [ "$pc_observed" = "true" ] && [ -n "$pc_hit" ]; then
   case "$pc_ttl" in 1h) ttl_s=3600 ;; *) ttl_s=300 ;; esac
@@ -181,7 +182,9 @@ if [ "$pc_observed" = "true" ] && [ -n "$pc_hit" ]; then
   recache="--"
   [ -n "$pc_recache" ] && recache=$(fmt_k "$pc_recache")
   hit=$(awk "BEGIN{printf \"%.0f\", $pc_hit * 100}")
-  cache_str="${cache_color}cache${ESC}[0m${grey} ${recache} ${hit}%${ESC}[0m"
+  ttl_part=""
+  if [ -n "$pc_ttl" ]; then ttl_part="${pc_ttl} "; fi
+  cache_str="${cache_color}cache${ESC}[0m${grey} ${ttl_part}${recache} ${hit}%${ESC}[0m"
 fi
 
 # ── Output style ───────────────────────────────────────────────────────────────

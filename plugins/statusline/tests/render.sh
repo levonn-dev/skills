@@ -190,7 +190,7 @@ cache_payload() { payload "$tmp/t.jsonl" | jq -c --argjson pc "$1" '. + {prompt_
 
 # 21. Warm cache: "cache <recache tokens> <hit%>" after the split, before the directory.
 out="$(cache_payload "$(pc true 5m $((now + 240)) 0.91 112000)" | render)"
-check "cache_text_tokens_then_hit" "$([ "$(in_order "$out" "chat 16k 8%" "cache 112k 91%" "$tmp")" = "1" ] && echo 1 || echo 0)"
+check "cache_text_tokens_then_hit" "$([ "$(in_order "$out" "chat 16k 8%" "cache 5m 112k 91%" "$tmp")" = "1" ] && echo 1 || echo 0)"
 
 # 22. Most of the lifetime left: the word is green.
 raw="$(cache_payload "$(pc true 5m $((now + 240)) 0.91 112000)" | "$SCRIPT")"
@@ -206,7 +206,7 @@ check "cache_word_yellow_under_quarter_1h" "$([[ "$raw" == *"${CACHE_YELLOW}cach
 
 # 25. Cold: grey, text intact.
 raw="$(cache_payload "$(pc false 5m "" 0.91 112000)" | "$SCRIPT")"
-check "cache_word_grey_when_cold" "$([[ "$raw" == *"${CACHE_GREY}cache"* ]] && [[ "$(printf '%s' "$raw" | sed 's/\x1b\[[0-9;]*m//g')" == *"cache 112k 91%"* ]] && echo 1 || echo 0)"
+check "cache_word_grey_when_cold" "$([[ "$raw" == *"${CACHE_GREY}cache"* ]] && [[ "$(printf '%s' "$raw" | sed 's/\x1b\[[0-9;]*m//g')" == *"cache 5m 112k 91%"* ]] && echo 1 || echo 0)"
 
 # 26. Warm flag still set but the expiry has passed: grey.
 raw="$(cache_payload "$(pc true 5m $((now - 5)) 0.91 112000)" | "$SCRIPT")"
@@ -214,7 +214,7 @@ check "cache_word_grey_after_expiry" "$([[ "$raw" == *"${CACHE_GREY}cache"* ]] &
 
 # 27. Recache tokens unknown right after a compaction: dashes.
 out="$(cache_payload "$(pc true 5m $((now + 240)) 0.91)" | render)"
-check "cache_recache_unknown_shows_dashes" "$([[ "$out" == *"cache -- 91%"* ]] && echo 1 || echo 0)"
+check "cache_recache_unknown_shows_dashes" "$([[ "$out" == *"cache 5m -- 91%"* ]] && echo 1 || echo 0)"
 
 # 28. Caching never observed on this provider: no section.
 out="$(cache_payload '{"caching_observed":false,"warm":false,"ttl":"5m","expires_at":null,"hit_ratio":null,"recache_tokens_if_cold":null}' | render)"
@@ -223,6 +223,14 @@ check "cache_section_omitted_when_not_observed" "$([[ "$out" != *"cache "* ]] &&
 # 29. Payload without a prompt_cache object: no section.
 out="$(payload "$tmp/t.jsonl" | render)"
 check "cache_section_omitted_without_object" "$([[ "$out" != *"cache "* ]] && echo 1 || echo 0)"
+
+# 30. One-hour lifetime: the ttl text is printed as given.
+out="$(cache_payload "$(pc true 1h $((now + 1800)) 0.91 112000)" | render)"
+check "cache_ttl_text_1h" "$([[ "$out" == *"cache 1h 112k 91%"* ]] && echo 1 || echo 0)"
+
+# 31. No ttl in the payload: the section reads as before.
+out="$(cache_payload "$(pc true 5m $((now + 240)) 0.91 112000)" | jq -c 'del(.prompt_cache.ttl)' | render)"
+check "cache_without_ttl_unchanged" "$([[ "$out" == *"cache 112k 91%"* ]] && [[ "$out" != *"cache 5m"* ]] && echo 1 || echo 0)"
 
 echo
 echo "Passed: $pass / $((pass + fail))"

@@ -23,10 +23,11 @@ Claude Code sets `COLUMNS` for the script on every run. Sections are packed in o
 ## Prompt cache section
 
 ```
-cache 112k 91%
+cache 5m 112k 91%
 ```
 
-- The word `cache` carries the state: green while the cached prefix is warm, yellow once under a quarter of its lifetime is left, grey when it has gone cold. The lifetime is the payload's `ttl`, `5m` or `1h`.
+- The word `cache` carries the state: green while the cached prefix is warm, yellow once under a quarter of its lifetime is left, grey when it has gone cold.
+- The lifetime text after `cache` is the payload's `ttl`, `5m` or `1h`, in the numbers' grey. It is omitted when the payload lacks `ttl`.
 - The tokens are what the next request re-caches if the cache is cold: while warm, the prefix at stake; when cold, what the first turn back pays for. Right after a compaction the payload does not know yet and the section shows `--`.
 - The percentage is the session's cache-read share of input tokens for the main conversation. Subagents are not counted.
 - The section is absent before the first reply and when the payload reports no caching: a provider or gateway that does not report cache tokens, or Claude Code before v2.1.251, which has no `prompt_cache` object.

@@ -1,0 +1,6 @@
+{
+  "session_id": "s1",
+  "tool_use_id": "tu1",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Agent"
+}

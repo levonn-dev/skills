@@ -1,0 +1,11 @@
+{
+  "session_id": "s1",
+  "tool_use_id": "tu1",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "prompt": "find callers of foo",
+    "description": "explore",
+    "subagent_type": "fork"
+  }
+}

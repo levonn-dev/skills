@@ -91,7 +91,7 @@ fresh
 err="$(run "$CONFIG" write Explore=Haiku 2>&1 >/dev/null)"
 rc=$?
 ok=0
-[ "$rc" = 1 ] && [[ "$err" == *"invalid alias for Explore: Haiku"* ]] && [ ! -e "$cfg/delegation.json" ] && ok=1
+[ "$rc" = 1 ] && [[ "$err" == *"invalid alias for Explore: Haiku (pins are aliases; map an alias to a model id in /delegation:configure)"* ]] && [ ! -e "$cfg/delegation.json" ] && ok=1
 check write_rejects_bad_alias $ok
 
 # write_strips_fork
@@ -117,6 +117,36 @@ out="$(run "$CONFIG" show)"
 ok=0
 printf '%s\n' "$out" | grep -qP '^fable\tFable 5\.1' && printf '%s\n' "$out" | grep -qx 'config: none' && ok=1
 check show_lists_table $ok
+
+# propose_honors_env_map
+fresh
+out="$(run ANTHROPIC_DEFAULT_HAIKU_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0 "$CONFIG" propose)"
+ok=0
+printf '%s\n' "$out" | grep -qxP 'Explore\thaiku\tus\.anthropic\.claude-haiku-4-5-20251001-v1:0' \
+  && printf '%s\n' "$out" | grep -qxP 'delegation:reviewer\tsonnet\tSonnet 5\.5' && ok=1
+check propose_honors_env_map $ok
+
+# show_honors_env_map
+fresh
+out="$(run CLAUDE_CODE_USE_BEDROCK=1 ANTHROPIC_DEFAULT_SONNET_MODEL=custom-id "$CONFIG" show)"
+ok=0
+printf '%s\n' "$out" | grep -qxP 'sonnet\tcustom-id' && printf '%s\n' "$out" | grep -qxP 'haiku\tHaiku 4\.5' && ok=1
+check show_honors_env_map $ok
+
+# propose_ignores_empty_env_map
+fresh
+out="$(run ANTHROPIC_DEFAULT_HAIKU_MODEL= "$CONFIG" propose)"
+ok=0
+printf '%s\n' "$out" | grep -qxP 'Explore\thaiku\tHaiku 5\.5' && ok=1
+check propose_ignores_empty_env_map $ok
+
+# propose_garbage_pin_prints_unknown
+fresh
+printf '{"version":1,"provider":"anthropic","pins":{"Explore":"a b"}}\n' > "$cfg/delegation.json"
+err="$(run ANTHROPIC_DEFAULT_HAIKU_MODEL=us.x "$CONFIG" propose 2>&1 >"$tmp/out")"
+ok=0
+[ -z "$err" ] && grep -qxP 'Explore\ta b\tunknown' "$tmp/out" && ok=1
+check propose_garbage_pin_prints_unknown $ok
 
 # ttl_show_unset
 fresh

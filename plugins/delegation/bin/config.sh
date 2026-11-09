@@ -10,6 +10,17 @@ source "$(dirname "$0")/provider.sh"
 # What an alias resolves to on the given provider. Case tables, not
 # associative arrays, so stock macOS bash 3.2 runs this.
 resolve() {
+  # A non-empty ANTHROPIC_DEFAULT_<ALIAS>_MODEL overrides the table below.
+  case "$2" in
+    haiku | sonnet | opus | fable)
+      local name
+      name="ANTHROPIC_DEFAULT_$(printf '%s' "$2" | tr '[:lower:]' '[:upper:]')_MODEL"
+      if [ -n "${!name:-}" ]; then
+        echo "${!name}"
+        return 0
+      fi
+      ;;
+  esac
   case "$1:$2" in
     *:inherit) echo "session model" ;;
     anthropic:haiku) echo "Haiku 5.5" ;;
@@ -84,7 +95,7 @@ cmd_write() {
     fi
     case "$alias" in
       opus | sonnet | haiku | fable | inherit) ;;
-      *) echo "invalid alias for $type: $alias" >&2; return 1 ;;
+      *) echo "invalid alias for $type: $alias (pins are aliases; map an alias to a model id in /delegation:configure)" >&2; return 1 ;;
     esac
     types+=("$type")
     aliases+=("$alias")

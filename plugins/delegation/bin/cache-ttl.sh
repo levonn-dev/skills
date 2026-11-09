@@ -4,31 +4,15 @@
 
 set -uo pipefail
 
-KEYS=(promptCacheTtl subagentPromptCacheTtl)
-SETTINGS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
-DEFAULT_MANAGED="/etc/claude-code:/Library/Application Support/ClaudeCode:/mnt/c/Program Files/ClaudeCode:/c/Program Files/ClaudeCode"
+# shellcheck disable=SC1091  # path resolved at run time
+source "$(dirname "$0")/settings.sh"
 
-# First managed file that sets the key, or "none".
-managed_source() {
-  local key="$1" dir f
-  local -a dirs
-  IFS=: read -ra dirs <<<"${DELEGATION_MANAGED_DIRS-$DEFAULT_MANAGED}"
-  for dir in "${dirs[@]}"; do
-    [ -n "$dir" ] || continue
-    for f in "$dir/managed-settings.json" "$dir"/managed-settings.d/*.json; do
-      [ -f "$f" ] || continue
-      if jq -e --arg k "$key" 'has($k)' "$f" >/dev/null 2>&1; then
-        echo "$f"
-        return 0
-      fi
-    done
-  done
-  echo none
-}
+KEYS=(promptCacheTtl subagentPromptCacheTtl)
+SETTINGS="$(delegation_settings_path)"
 
 # The two keys from the settings file, as one JSON line.
 two_keys() {
-  jq -c '{promptCacheTtl, subagentPromptCacheTtl}' "$SETTINGS"
+  delegation_settings_get '{promptCacheTtl, subagentPromptCacheTtl}'
 }
 
 cmd_show() {
@@ -38,7 +22,7 @@ cmd_show() {
     if [ -f "$SETTINGS" ]; then
       user="$(jq -r --arg k "$key" '.[$k] // "unset"' "$SETTINGS" 2>/dev/null || echo unset)"
     fi
-    src="$(managed_source "$key")"
+    src="$(delegation_managed_source "$key")"
     [ "$src" = none ] || eligible=no
     echo "$key: user=$user managed=$src"
   done
@@ -49,34 +33,15 @@ cmd_show() {
 }
 
 cmd_set() {
-  local value="${1:-}" tmp target
+  local value="${1:-}"
   case "$value" in
     5m | 1h) ;;
     *) echo "usage: cache-ttl.sh set 5m|1h" >&2; return 1 ;;
   esac
-  # Exactly one JSON object, or refuse.
-  if [ -f "$SETTINGS" ] && ! { jq -e 'type == "object"' "$SETTINGS" >/dev/null 2>&1 && [ "$(jq -s 'length' "$SETTINGS" 2>/dev/null)" = 1 ]; }; then
-    echo "settings.json is not valid JSON; nothing written" >&2
-    return 1
-  fi
-  mkdir -p "$(dirname "$SETTINGS")"
-  [ -f "$SETTINGS" ] || echo '{}' >"$SETTINGS"
-  # Replace the real file, not a symlink to it, and keep its mode.
-  target="$(readlink -f "$SETTINGS" 2>/dev/null)"
-  [ -n "$target" ] || target="$SETTINGS"
+  delegation_settings_check || return 1
   echo "before: $(two_keys)"
-  tmp="$(mktemp "$(dirname "$target")/.settings.XXXXXX")" || { echo "settings.json could not be written; nothing written" >&2; return 1; }
-  # cp -p copies the mode portably; jq then truncates and fills the copy.
-  if ! cp -p "$target" "$tmp"; then
-    rm -f "$tmp"
-    echo "settings.json could not be written; nothing written" >&2
-    return 1
-  fi
-  if ! { jq --arg v "$value" '. + {promptCacheTtl: $v, subagentPromptCacheTtl: $v}' "$SETTINGS" >"$tmp" && mv "$tmp" "$target"; }; then
-    rm -f "$tmp"
-    echo "settings.json could not be written; nothing written" >&2
-    return 1
-  fi
+  # shellcheck disable=SC2016  # $v is a jq variable
+  delegation_settings_merge '. + {promptCacheTtl: $v, subagentPromptCacheTtl: $v}' --arg v "$value" || return 1
   echo "after: $(two_keys)"
 }
 

@@ -60,7 +60,7 @@ Apply before dispatching a subagent, or when a task splits into several parts.
 - A fresh subagent never reads the parent's cache and starts at 13k to 47k tokens.
 - Its own cache lives five minutes unless its agent file sets an hour. The delegation agents set an hour.
 - A fork shares the parent's cache but carries the whole context and runs on the parent model.
-- Aliases resolve to older models off the Anthropic API. `/delegation:configure` is for that.
+- What an alias means is per machine. `/delegation:configure` sets the pins and can map each alias to a model id.
 
 ## Measurement
 

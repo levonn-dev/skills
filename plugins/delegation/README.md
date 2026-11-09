@@ -18,7 +18,7 @@ The hook applies these in order and stops at the first that matches:
 
 A config made for a different provider than the one detected is ignored, so the defaults rule applies instead.
 
-Pins are injected as per-call aliases. On the Anthropic API the aliases mean the 5.5 models. Off it they mean older models: Sonnet 4.5 and Haiku 4.5 on Bedrock and Vertex, Opus 4.6 on Foundry.
+Pins are injected as per-call aliases. Aliases are the only values the Agent tool accepts in `model`. What each alias means on a machine is set by `ANTHROPIC_DEFAULT_<ALIAS>_MODEL` for `haiku`, `sonnet`, `opus`, and `fable`, which `/delegation:configure` can write. Without a map, on the Anthropic API the aliases mean the 5.5 models, and off it they mean older models: Sonnet 4.5 and Haiku 4.5 on Bedrock and Vertex, Opus 4.6 on Foundry.
 
 ### Provider detection
 
@@ -34,9 +34,10 @@ Writes the per-machine pins to `${CLAUDE_CONFIG_DIR:-~/.claude}/delegation.json`
 - Asks whether to accept the proposal, adjust roles (`haiku`, `sonnet`, `opus`, `inherit`, or `fable` as free text), or set everything to `inherit`.
 - Asks for any other subagent types to pin, as `type=alias` pairs.
 - Writes the file and shows before and after. Re-running starts from the existing choices.
+- Alias-map step: shows what each alias resolves to on this machine (user settings value, managed source, this session's value) and offers to map any alias to a model id, as `alias=id` pairs, written to `ANTHROPIC_DEFAULT_<ALIAS>_MODEL` in the `env` block of user settings. Any token without whitespace is accepted and passed through verbatim. A managed alias is skipped. The map also changes the main session's alias and, for `haiku`, background tasks.
 - Cache-lifetime step: offers to set `promptCacheTtl` and `subagentPromptCacheTtl` to `1h` in user settings only. It offers this only when neither key is managed on disk and `FORCE_PROMPT_CACHING_5M` is unset, and writes only after you say yes. It refuses to touch a `settings.json` that is not a single JSON object.
 
-Pins apply on the next Agent call. The cache lifetime applies on the next session.
+Pins apply on the next Agent call. The alias map and the cache lifetime apply on the next session.
 
 ### First run
 
@@ -62,7 +63,7 @@ Prints a table of the most recent session's subagent runs (the most recently mod
 
 ## Limitations
 
-- Aliases resolve to older models off the Anthropic API (see above).
+- A pin is an alias, never a model id. The Agent tool's `model` field is an enum of aliases and Claude Code re-validates a hook's rewritten input against it (verified on 2.1.319). Map an alias to a model id with the alias-map step instead; four distinct models per machine is the ceiling. Without a map, aliases resolve to older models off the Anthropic API (see above).
 - A Claude apps gateway is detected as `anthropic`, so defaults and Anthropic-API aliases are assumed there.
 - On a `gateway` provider (`ANTHROPIC_BASE_URL` set) the defaults do not apply and no alias is assumed to resolve to a known model; pins take effect only from a config file.
 - The hook cannot see the main model. On a Haiku main session a `sonnet` pin moves work up. Choose `inherit` for that role in `/delegation:configure`.
@@ -82,8 +83,8 @@ Prints a table of the most recent session's subagent runs (the most recently mod
 - `agents/`: the six agents.
 - `skills/delegation/SKILL.md`: when and how to delegate.
 - `commands/configure.md` and `commands/report.md`: the two slash commands.
-- `bin/provider.sh`: provider detection and path helpers.
-- `bin/config.sh`, `bin/cache-ttl.sh`, `bin/report.sh`: the scripts behind the commands. Need `jq`.
+- `bin/provider.sh` and `bin/settings.sh`: provider detection, path helpers, and user-settings helpers, sourced by the others.
+- `bin/config.sh`, `bin/alias-map.sh`, `bin/cache-ttl.sh`, `bin/report.sh`: the scripts behind the commands. Need `jq`.
 
 Every script runs under `#!/usr/bin/env bash` and works on bash 3.2, the one macOS ships, so no newer bash is needed and the login shell does not matter. The hooks do nothing without `jq`; the scripts behind the commands fail with a `jq` error.
 
@@ -102,7 +103,8 @@ bash plugins/delegation/tests/run.sh
 bash plugins/delegation/tests/log.sh
 bash plugins/delegation/tests/note.sh
 bash plugins/delegation/tests/config.sh
+bash plugins/delegation/tests/alias-map.sh
 bash plugins/delegation/tests/agents.sh
 ```
 
-`provider.sh` checks provider detection. `run.sh` feeds hook payloads through the pin hook. `log.sh` checks the run log. `note.sh` checks the session note and the first-run notice. `config.sh` checks the config and cache-lifetime scripts, and that `bin/` and `hooks/` stay free of bash 4 constructs. `agents.sh` checks the agent frontmatter and the description footprint.
+`provider.sh` checks provider detection. `run.sh` feeds hook payloads through the pin hook. `log.sh` checks the run log. `note.sh` checks the session note and the first-run notice. `config.sh` checks the config and cache-lifetime scripts, and that `bin/` and `hooks/` stay free of bash 4 constructs. `alias-map.sh` checks the alias-map script. `agents.sh` checks the agent frontmatter and the description footprint.

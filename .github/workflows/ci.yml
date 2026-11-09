@@ -39,6 +39,7 @@ jobs:
           bash plugins/delegation/tests/log.sh
           bash plugins/delegation/tests/note.sh
           bash plugins/delegation/tests/config.sh
+          bash plugins/delegation/tests/alias-map.sh
           bash plugins/delegation/tests/agents.sh
 
       - name: ShellCheck

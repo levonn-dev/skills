@@ -52,8 +52,8 @@
     {
       "name": "delegation",
       "source": "./plugins/delegation",
-      "version": "0.1.0",
-      "description": "Pins cheaper model aliases onto blank-model subagent dispatches per environment, ships six delegation agents, and reports what each subagent ran on; /delegation:configure sets pins once per machine"
+      "version": "0.2.0",
+      "description": "Pins cheaper model aliases onto blank-model subagent dispatches per environment, ships six delegation agents, and reports what each subagent ran on; /delegation:configure sets pins and alias-to-model mappings once per machine"
     }
   ]
 }

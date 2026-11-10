@@ -1,0 +1,1 @@
+{"tool_input":{"command":"git -C \"`git rev-parse --show-toplevel`\" commit -m x"}}

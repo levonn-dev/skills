@@ -55,6 +55,38 @@ for f in "$CASES_DIR"/*.json; do
   fi
 done
 
+# check <name> <expected> <actual>
+check() {
+  total=$((total + 1))
+  if [ "$3" = "$2" ]; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    failures+=("$1: expected $2, got $3")
+  fi
+}
+
+# A 200,000-character command, half bare and half quoted, with a write at its
+# end: the hook must reach the write within 10 seconds. Timed with SECONDS,
+# since macOS has no timeout command.
+filler="$(head -c 100000 /dev/zero | tr '\0' 'a')"
+started=$SECONDS
+printf '{"tool_input":{"command":"echo %s \\"%s\\"; git push"}}' "$filler" "$filler" \
+  | bash "$HOOK" >/dev/null 2>&1
+actual=$?
+[ $((SECONDS - started)) -le 10 ] || actual="$actual after more than 10s"
+check "large_command" 2 "$actual"
+
+# The hook must not lean on grep, whose -P macOS lacks: with a grep that only
+# fails, a write still denies and a read still passes.
+mkdir "$FIX/nogrep"
+printf '#!/bin/sh\nexit 2\n' > "$FIX/nogrep/grep"
+chmod +x "$FIX/nogrep/grep"
+PATH="$FIX/nogrep:$PATH" bash "$HOOK" < "$CASES_DIR/block_push.json" >/dev/null 2>&1
+check "write_without_grep" 2 $?
+PATH="$FIX/nogrep:$PATH" bash "$HOOK" < "$CASES_DIR/allow_status.json" >/dev/null 2>&1
+check "read_without_grep" 0 $?
+
 echo
 echo "Passed: $pass / $total"
 if [ "$fail" -gt 0 ]; then

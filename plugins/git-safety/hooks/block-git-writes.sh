@@ -5,10 +5,8 @@
 
 set -uo pipefail
 
-# Force byte-mode string handling. grep -ob emits byte offsets, but bash
-# ${var:pos} uses Unicode characters by default. Multi-byte chars in the
-# command string (e.g. accented paths, CJK) would shift the offsets and
-# let writes slip through. LC_ALL=C makes everything byte-aligned.
+# Byte-wise ASCII matching in bash and awk. In other locales a range such as
+# [a-z] can take in letters outside it, and matching a long string slows down.
 export LC_ALL=C
 
 # Hard dependency. If jq is missing, the command-extraction below would
@@ -305,17 +303,17 @@ command_args() {
 }
 
 scan_for_git() {
-  local s="$1" line offset prev rest after subcmd args_after
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    offset="${line%%:*}"
-    if [ "$offset" -gt 0 ]; then
-      prev="${s:offset-1:1}"
-      case "$prev" in
-        [a-zA-Z0-9_]) continue ;;
-      esac
-    fi
-    rest="${s:offset+4}"
+  local s="$1" rest="$1" before after subcmd args_after
+  # What may follow `git` on its line. A newline ends the command instead.
+  local blank=$' \t\r\f\v'
+  # Matched in bash alone: macOS grep has no -P.
+  while [[ "$rest" == *git["$blank"]* ]]; do
+    before="${rest%%git["$blank"]*}"
+    rest="${rest:${#before}+4}"
+    # `git` ending a longer word, as in `legit`, is not the command.
+    case "${before: -1}" in
+      [a-zA-Z0-9_]) continue ;;
+    esac
     after=$(walk_past_flags "$rest")
     subcmd=""
     if [[ "$after" =~ ^([a-zA-Z][a-zA-Z0-9_-]*) ]]; then
@@ -342,7 +340,7 @@ scan_for_git() {
         deny "$subcmd"
       fi
     fi
-  done < <(printf '%s' "$s" | grep -obP '\bgit\s+' || true)
+  done
 }
 
 # ---- sanitize ----
@@ -382,36 +380,100 @@ strip_heredocs() {
   '
 }
 
+# Empties each quoted string to a bare quote pair and drops comments, so data
+# is not scanned as a command. With `reveal`, a quoted plain word is written
+# bare, as the shell reads it. In awk: bash measures the string per ${s:i:1}.
 strip_quotes() {
-  local s="$1" out="" i=0 n ch in_single=0 in_double=0
-  n=${#s}
-  while [ "$i" -lt "$n" ]; do
-    ch="${s:i:1}"
-    if [ "$in_single" = 1 ]; then
-      if [ "$ch" = "'" ]; then in_single=0; out+="'"; fi
-      i=$((i + 1)); continue
-    fi
-    if [ "$in_double" = 1 ]; then
-      # shellcheck disable=SC1003  # '\' is a literal backslash, not an escaped quote
-      if [ "$ch" = '\' ] && [ "$((i + 1))" -lt "$n" ]; then
-        i=$((i + 2)); continue
-      fi
-      if [ "$ch" = '"' ]; then in_double=0; out+='"'; fi
-      i=$((i + 1)); continue
-    fi
-    case "$ch" in
-      "'") in_single=1; out+="'" ;;
-      '"') in_double=1; out+='"' ;;
-      *)   out+="$ch" ;;
-    esac
-    i=$((i + 1))
-  done
-  printf '%s' "$out"
+  printf '%s' "$1" | awk -v reveal="${2:-}" -v plain="$PLAIN_TOKEN_RE" '
+    # Set, not left unset: some awks stop treating a copied unset value as 0.
+    BEGIN { out = 0 }
+    function emit(s) {
+      if (out == 0) printf "%s", s
+      else held[out, ++count[out]] = s
+    }
+    # A substitution inside a double-quoted string is code. It goes to an
+    # output line of its own, so the string stays one "" token where it stood.
+    function open_code(kind, own_line) {
+      sp++; ctx[sp] = kind; back[sp] = out; depth[sp] = 1
+      if (own_line) out = ++lines
+      if (kind == "`") ticks++
+    }
+    function close_code() {
+      if (ctx[sp] == "`") ticks--
+      out = back[sp]; sp--
+    }
+    # A # is a comment only where a word starts: an escaped blank or a
+    # continued line before it keeps it inside the word.
+    function starts_word(i) {
+      if (i == 1) return last != "\\"
+      return c[i - 1] ~ /[ \t;&|(<>]/ && c[i - 2] != "\\"
+    }
+    # True when characters a to b of the line are all plain. None is plain too.
+    function plain_run(a, b,   j) {
+      for (j = a; j <= b; j++) if (c[j] !~ plain) return 0
+      return 1
+    }
+    {
+      comment = 0
+      for (k = 1; k <= sp; k++) spans[k] = 1
+      kind = ctx[sp]
+      if (NR > 1 && kind != "\047" && kind != "\042") emit("\n")
+      # One character per element: substr() rescans the whole line in some awks.
+      n = split($0, c, "")
+      for (i = 1; i <= n; i++) {
+        ch = c[i]
+        kind = ctx[sp]
+        if (kind == "\047" || kind == "\042") {
+          if (ch == kind) {
+            if (reveal && !spans[sp] && plain_run(start[sp], i - 1)) {
+              for (j = start[sp]; j < i; j++) emit(c[j])
+            } else emit(kind kind)
+            sp--
+          } else if (kind == "\042") {
+            if (ch == "\\") i++
+            else if (ch == "`") open_code(ch, 1)
+            else if (ch == "$" && c[i + 1] == "(") { open_code("(", 1); i++ }
+          }
+          continue
+        }
+        # A comment ends with its line, or with the backticks it sits in.
+        if (comment && !(ch == "`" && ticks)) continue
+        comment = 0
+        if (ch == "#" && starts_word(i)) { comment = 1; continue }
+        if (ch == "\047" || ch == "\042") { sp++; ctx[sp] = ch; start[sp] = i + 1; spans[sp] = 0; continue }
+        if (kind == "(") {
+          if (ch == "(") depth[sp]++
+          else if (ch == ")" && --depth[sp] == 0) { close_code(); continue }
+        }
+        if (ch == "`") {
+          # Backticks met in code stay in place: only their extent is tracked.
+          if (kind != "`") open_code(ch, 0)
+          else {
+            in_place = (out == back[sp])
+            close_code()
+            if (!in_place) continue
+          }
+        }
+        emit(ch)
+      }
+      last = c[n]
+    }
+    END {
+      for (k = 1; k <= lines; k++) {
+        printf "\n"
+        for (j = 1; j <= count[k]; j++) printf "%s", held[k, j]
+      }
+    }
+  '
 }
 
 # ---- main ----
 
 sanitized=$(strip_heredocs "$command")
-sanitized=$(strip_quotes "$sanitized")
-scan_for_git "$sanitized"
+blanked=$(strip_quotes "$sanitized")
+scan_for_git "$blanked"
+# `git "commit"` runs commit, so scan again with quoted plain words bare.
+# The first scan keeps the quote markers the strict argument readers deny on.
+revealed=$(strip_quotes "$sanitized" reveal)
+[ "$revealed" = "$blanked" ] || scan_for_git "$revealed"
 exit 0

@@ -16,7 +16,7 @@
     {
       "name": "git-safety",
       "source": "./plugins/git-safety",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Prevents Claude from running git write commands (skill + PreToolUse hook); /git-safety:commit-queue hands commits back as a verified queue"
     },
     {

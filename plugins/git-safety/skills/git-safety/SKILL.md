@@ -26,10 +26,16 @@ Conditional subcommands, allowed only in list/show/get mode:
 - `git tag` (no args, or with `-l` / `--list`)
 - `git remote` (no args, or with `-v`, `show`, `get-url`)
 - `git stash list`, `git stash show`
-- `git config --get`, `git config --get-all`, `git config -l`
+- `git config --get`, `git config --get-all`, `git config -l`, or a lone key with no value such as `git config --global user.name`
 - `git submodule status`, `git submodule foreach`, `git submodule summary`
 - `git notes list`, `git notes show`
 - `git reflog`, `git reflog show`, `git reflog exists`
+
+One write is allowed because it touches no existing repository:
+
+- `git clone [flags] <repository> <absolute target>`, when the target is outside every git repository. Spell the target as a plain absolute path such as `/tmp/name`: no `~`, no variable, no quotes, no `..`. The flags that pass are `--depth`, `-b`/`--branch`, `--filter`, `-j`/`--jobs`, `-q`, `-v`, `--progress`, `-n`, `--bare`, `--mirror`, `--single-branch`, `--no-tags`, `--recurse-submodules`, `--shallow-submodules` and `--sparse`.
+
+Write a lone-key config read or a clone with plain arguments only: no quotes, variables, globs, braces, substitutions or line continuations, and no `GIT_` variable anywhere in a clone command. A plain redirection such as `2>/dev/null` is fine. Anything the hook cannot read with certainty is denied.
 
 ## What gets blocked
 
@@ -37,6 +43,7 @@ Anything that writes:
 
 - Commit operations: `commit`, `add`, `rm`, `mv`
 - Remote sync: `push`, `pull`, `fetch`
+- Clone into a repository: `clone` with no target, a relative target, a target inside any working tree or git dir, a global flag before `clone`, or any flag not listed above
 - History rewrites: `merge`, `rebase`, `reset`, `restore`, `revert`, `cherry-pick`
 - Working tree changes: `checkout`, `switch`, `clean`
 - Branch/tag writes: `branch -d`/`-D`/`-m`, `tag <new>`

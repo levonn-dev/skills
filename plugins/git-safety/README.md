@@ -5,7 +5,7 @@ Keeps repo state changes in the user's hands. Claude reads git freely, never wri
 ## What ships
 
 - `skills/git-safety/SKILL.md`: the advisory skill. Lists what is allowed (read-only subcommands, list/show/get modes), what is blocked, and how to refuse a write request.
-- `hooks/block-git-writes.sh`: a `PreToolUse` hook on `Bash` that hard-denies any git command that modifies local or remote state. Handles chained commands, subshells, `-C`, env prefixes, and quoted heredocs (which are allowed). Exit 2 denies; exit 0 allows.
+- `hooks/block-git-writes.sh`: a `PreToolUse` hook on `Bash` that hard-denies any git command that modifies local or remote state. Handles chained commands, subshells, `-C`, env prefixes, and quoted heredocs (which are allowed). A lone-key config read passes, `git config --global user.name 2>/dev/null` included. `git clone` passes in one shape only, `git clone [flags] <repository> <absolute target>` with the target outside every git repository, since such a clone changes no existing repository. Both are read strictly, plain tokens and plain redirections only, so an expansion, a substitution or a continued line that could hide an argument from the hook denies. Exit 2 denies; exit 0 allows.
 - `commands/commit-queue.md`: `/git-safety:commit-queue [hints]`. Partitions the working tree into commits (every changed file in exactly one commit, final-state replay, dependency order, generated code with its source, tests and docs with the change they belong to), verifies the partition against `git status` for duplicates and gaps, and emits separate single-line `git add ... && git commit -m ...` commands plus a `commit-queue.sh` the user can run.
 
 ## Why separate single-line commands
@@ -30,4 +30,4 @@ Disable per project in `<repo>/.claude/settings.local.json`:
 bash plugins/git-safety/tests/run.sh
 ```
 
-Each `tests/cases/*.json` file is piped through the hook; the filename prefix (`allow_` or `block_`) is the expected outcome.
+Each `tests/cases/*.json` file is piped through the hook; the filename prefix (`allow_` or `block_`) is the expected outcome. `__FIX__` in a case stands for a fixture directory the runner builds, holding a working tree, a bare git dir, a symlink into the tree and a plain directory.

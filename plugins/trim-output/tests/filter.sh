@@ -77,8 +77,9 @@ a="$(grep -nxF 'FAIL: test_100' "$tmp/out2" | cut -d: -f1)"
 b="$(grep -nxF 'FAIL: test_250' "$tmp/out2" | cut -d: -f1)"
 c="$(grep -nxF 'FAIL: test_400' "$tmp/out2" | cut -d: -f1)"
 d="$(grep -nxF 'line 476' "$tmp/out2" | cut -d: -f1)"
-[ -n "$a" ] && [ -n "$b" ] && [ -n "$c" ] && [ -n "$d" ] && [ "$a" -lt "$b" ] && [ "$b" -lt "$c" ] && [ "$c" -lt "$d" ]
-check order_preserved $(( $? == 0 ))
+ok=0
+[ -n "$a" ] && [ -n "$b" ] && [ -n "$c" ] && [ -n "$d" ] && [ "$a" -lt "$b" ] && [ "$b" -lt "$c" ] && [ "$c" -lt "$d" ] && ok=1
+check order_preserved $ok
 
 # 5. overlap_counted_once
 plain 500 | sed '490s/.*/FAIL: late/' | "$FILTER" > "$tmp/out5"
@@ -107,8 +108,9 @@ check no_trailing_newline "$ok"
 # 8. empty_input
 "$FILTER" < /dev/null > "$tmp/out8"
 rc=$?
-[ "$rc" = "0" ] && [ ! -s "$tmp/out8" ]
-check empty_input $(( $? == 0 ))
+ok=0
+[ "$rc" = "0" ] && [ ! -s "$tmp/out8" ] && ok=1
+check empty_input $ok
 
 # 9. exit_status_survives
 bash -c "set -o pipefail; { bash -c 'seq 1 100; exit 3'; } 2>&1 | '$FILTER'" > /dev/null

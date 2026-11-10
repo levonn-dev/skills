@@ -6,6 +6,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TAB=$'\t'
 CONFIG="$SCRIPT_DIR/../bin/config.sh"
 TTL="$SCRIPT_DIR/../bin/cache-ttl.sh"
 
@@ -51,22 +52,22 @@ fresh
 out="$(run "$CONFIG" propose)"
 n="$(printf '%s\n' "$out" | wc -l)"
 ok=0
-[ "$n" = 8 ] && printf '%s\n' "$out" | grep -qxP 'Explore\thaiku\tHaiku 5\.5' \
-  && printf '%s\n' "$out" | grep -qP '^delegation:reviewer\tsonnet\t' && ok=1
+[ "$n" -eq 8 ] && printf '%s\n' "$out" | grep -qx "Explore${TAB}haiku${TAB}Haiku 5\.5" \
+  && printf '%s\n' "$out" | grep -q "^delegation:reviewer${TAB}sonnet${TAB}" && ok=1
 check propose_anthropic_defaults $ok
 
 # propose_bedrock_annotates
 fresh
 out="$(run CLAUDE_CODE_USE_BEDROCK=1 "$CONFIG" propose)"
 ok=0
-printf '%s\n' "$out" | grep -qxP 'Explore\thaiku\tHaiku 4\.5' && ok=1
+printf '%s\n' "$out" | grep -qx "Explore${TAB}haiku${TAB}Haiku 4\.5" && ok=1
 check propose_bedrock_annotates $ok
 
 # propose_gateway_inherit
 fresh
 out="$(run ANTHROPIC_BASE_URL=x "$CONFIG" propose)"
 ok=0
-[ "$(printf '%s\n' "$out" | wc -l)" = 8 ] && [ "$(printf '%s\n' "$out" | cut -f2 | sort -u)" = inherit ] && ok=1
+[ "$(printf '%s\n' "$out" | wc -l)" -eq 8 ] && [ "$(printf '%s\n' "$out" | cut -f2 | sort -u)" = inherit ] && ok=1
 check propose_gateway_inherit $ok
 
 # propose_from_existing
@@ -74,7 +75,7 @@ fresh
 printf '%s\n' "$NINE" > "$cfg/delegation.json"
 out="$(run "$CONFIG" propose)"
 ok=0
-[ "$(printf '%s\n' "$out" | wc -l)" = 9 ] && printf '%s\n' "$out" | grep -qP '^Plan\topus' && ok=1
+[ "$(printf '%s\n' "$out" | wc -l)" -eq 9 ] && printf '%s\n' "$out" | grep -q "^Plan${TAB}opus" && ok=1
 check propose_from_existing $ok
 
 # write_valid
@@ -115,29 +116,29 @@ check write_replaces_pins $ok
 fresh
 out="$(run "$CONFIG" show)"
 ok=0
-printf '%s\n' "$out" | grep -qP '^fable\tFable 5\.1' && printf '%s\n' "$out" | grep -qx 'config: none' && ok=1
+printf '%s\n' "$out" | grep -q "^fable${TAB}Fable 5\.1" && printf '%s\n' "$out" | grep -qx 'config: none' && ok=1
 check show_lists_table $ok
 
 # propose_honors_env_map
 fresh
 out="$(run ANTHROPIC_DEFAULT_HAIKU_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0 "$CONFIG" propose)"
 ok=0
-printf '%s\n' "$out" | grep -qxP 'Explore\thaiku\tus\.anthropic\.claude-haiku-4-5-20251001-v1:0' \
-  && printf '%s\n' "$out" | grep -qxP 'delegation:reviewer\tsonnet\tSonnet 5\.5' && ok=1
+printf '%s\n' "$out" | grep -qx "Explore${TAB}haiku${TAB}us\.anthropic\.claude-haiku-4-5-20251001-v1:0" \
+  && printf '%s\n' "$out" | grep -qx "delegation:reviewer${TAB}sonnet${TAB}Sonnet 5\.5" && ok=1
 check propose_honors_env_map $ok
 
 # show_honors_env_map
 fresh
 out="$(run CLAUDE_CODE_USE_BEDROCK=1 ANTHROPIC_DEFAULT_SONNET_MODEL=custom-id "$CONFIG" show)"
 ok=0
-printf '%s\n' "$out" | grep -qxP 'sonnet\tcustom-id' && printf '%s\n' "$out" | grep -qxP 'haiku\tHaiku 4\.5' && ok=1
+printf '%s\n' "$out" | grep -qx "sonnet${TAB}custom-id" && printf '%s\n' "$out" | grep -qx "haiku${TAB}Haiku 4\.5" && ok=1
 check show_honors_env_map $ok
 
 # propose_ignores_empty_env_map
 fresh
 out="$(run ANTHROPIC_DEFAULT_HAIKU_MODEL= "$CONFIG" propose)"
 ok=0
-printf '%s\n' "$out" | grep -qxP 'Explore\thaiku\tHaiku 5\.5' && ok=1
+printf '%s\n' "$out" | grep -qx "Explore${TAB}haiku${TAB}Haiku 5\.5" && ok=1
 check propose_ignores_empty_env_map $ok
 
 # propose_garbage_pin_prints_unknown
@@ -145,7 +146,7 @@ fresh
 printf '{"version":1,"provider":"anthropic","pins":{"Explore":"a b"}}\n' > "$cfg/delegation.json"
 err="$(run ANTHROPIC_DEFAULT_HAIKU_MODEL=us.x "$CONFIG" propose 2>&1 >"$tmp/out")"
 ok=0
-[ -z "$err" ] && grep -qxP 'Explore\ta b\tunknown' "$tmp/out" && ok=1
+[ -z "$err" ] && grep -qx "Explore${TAB}a b${TAB}unknown" "$tmp/out" && ok=1
 check propose_garbage_pin_prints_unknown $ok
 
 # ttl_show_unset
@@ -255,7 +256,7 @@ printf '{"model":"opus"}\n' > "$cfg/settings.json"
 chmod 644 "$cfg/settings.json"
 run "$TTL" set 1h >/dev/null 2>&1
 ok=0
-[ "$(stat -c %a "$cfg/settings.json")" = 644 ] && ok=1
+[ -n "$(find "$cfg/settings.json" -perm 644)" ] && ok=1
 check ttl_set_keeps_mode $ok
 
 # ttl_set_keeps_symlink

@@ -51,6 +51,13 @@ printf '%s\n' "$out" | grep -qx 'haiku: key=ANTHROPIC_DEFAULT_HAIKU_MODEL user=u
   && printf '%s\n' "$out" | grep -qx 'eligible: haiku sonnet opus fable' && ok=1
 check show_all_unset $ok
 
+# show_with_empty_managed_list: an empty list means nothing is managed
+fresh
+out="$(env -i PATH="$PATH" HOME="$tmp/home" CLAUDE_CONFIG_DIR="$cfg" DELEGATION_MANAGED_DIRS= "$MAP" show 2>&1)"
+ok=0
+printf '%s\n' "$out" | grep -qx 'haiku: key=ANTHROPIC_DEFAULT_HAIKU_MODEL user=unset managed=none session=unset' && ok=1
+check show_with_empty_managed_list $ok
+
 # show_user_value
 fresh
 printf '{"env":{"ANTHROPIC_DEFAULT_HAIKU_MODEL":"us.anthropic.claude-haiku-4-5-20251001-v1:0"}}\n' > "$cfg/settings.json"
@@ -191,7 +198,7 @@ printf '{}\n' > "$cfg/settings.json"
 chmod 644 "$cfg/settings.json"
 run "$MAP" set haiku=us.h >/dev/null 2>&1
 ok=0
-[ "$(stat -c %a "$cfg/settings.json")" = 644 ] && ok=1
+[ -n "$(find "$cfg/settings.json" -perm 644)" ] && ok=1
 check set_keeps_mode $ok
 
 # set_keeps_symlink

@@ -71,7 +71,7 @@ for f in "$CASES_DIR"/*.json "$tmp/gen"/*.json; do
       [ -n "$line" ] && extra+=("$line")
     done < "$CASES_DIR/$name.env"
   fi
-  out="$(env -i PATH="$PATH" HOME="$tmp" DELEGATION_LOG_DIR="$logdir" DELEGATION_CONFIG="$cfg" "${extra[@]}" bash "$HOOK" < "$f" 2>/dev/null)"
+  out="$(env -i PATH="$PATH" HOME="$tmp" DELEGATION_LOG_DIR="$logdir" DELEGATION_CONFIG="$cfg" ${extra[@]+"${extra[@]}"} bash "$HOOK" < "$f" 2>/dev/null)"
   code=$?
   msg=""
   if [ "$code" != 0 ]; then

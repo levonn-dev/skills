@@ -12,7 +12,7 @@ delegation_managed_source() {
   local default="/etc/claude-code:/Library/Application Support/ClaudeCode:/mnt/c/Program Files/ClaudeCode:/c/Program Files/ClaudeCode"
   local -a dirs
   IFS=: read -ra dirs <<<"${DELEGATION_MANAGED_DIRS-$default}"
-  for dir in "${dirs[@]}"; do
+  for dir in ${dirs[@]+"${dirs[@]}"}; do
     [ -n "$dir" ] || continue
     for f in "$dir/managed-settings.json" "$dir"/managed-settings.d/*.json; do
       [ -f "$f" ] || continue

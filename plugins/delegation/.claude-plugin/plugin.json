@@ -1,6 +1,6 @@
 {
   "name": "delegation",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Pins cheaper model aliases onto blank-model subagent dispatches per environment, ships six delegation agents, and reports what each subagent ran on; /delegation:configure sets pins and alias-to-model mappings once per machine",
   "author": { "name": "levonn-dev", "email": "levonn@levonn.org" },
   "license": "MIT"

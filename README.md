@@ -15,6 +15,15 @@ Each plugin has its own README with what ships, install, and tests.
 - [trim-output](plugins/trim-output/README.md): `PreToolUse` hook that trims the output of bare test, build, and typecheck commands (`go test`, `npm test`, `tsc`, and others) to failure blocks and the tail before it reaches the model; the runner's exit status is preserved.
 - [delegation](plugins/delegation/README.md): pins cheaper model aliases onto subagent dispatches that name no model, per environment, with each alias mappable to a model id per machine; ships its own delegation agents; `/delegation:configure` sets pins once per machine and `/delegation:report` shows what each subagent ran on.
 
+## Platforms
+
+Every plugin supports Linux and macOS. On macOS the tools it ships are enough: bash 3.2, the BSD utilities and awk. Nothing needs Homebrew bash or GNU coreutils.
+
+- The hooks need `jq`. Install it with `brew install jq` if your macOS does not ship it.
+- delegation writes through a symlinked `settings.json` where `readlink -f` exists (macOS 12.3 or later). Elsewhere it replaces the link with a regular file.
+
+CI runs every hook suite on Ubuntu and on macOS, there once with the stock tools first on the `PATH` and once with Homebrew's.
+
 ## Install
 
 ```

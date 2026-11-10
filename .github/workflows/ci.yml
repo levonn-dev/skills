@@ -76,3 +76,30 @@ jobs:
             fi
           done < <(jq -r '.plugins[] | [.name, .source, .version] | @tsv' .claude-plugin/marketplace.json)
           exit $rc
+
+  # Every plugin supports macOS as well as Linux. The hook suites run there
+  # with the stock tools first (bash 3.2, BSD utilities, Apple awk), and again
+  # with the runner's own PATH, where Homebrew bash comes first.
+  macos:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tools: [stock, homebrew]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Hook test suites
+        run: |
+          set -uo pipefail
+          if [ "${{ matrix.tools }}" = stock ]; then
+            export PATH="/bin:/usr/bin:$PATH"
+          fi
+          bash --version | head -1
+          rc=0
+          for suite in plugins/*/tests/*.sh; do
+            echo "::group::$suite"
+            bash "$suite" || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc

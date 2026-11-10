@@ -16,7 +16,7 @@
     {
       "name": "git-safety",
       "source": "./plugins/git-safety",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "description": "Prevents Claude from running git write commands (skill + PreToolUse hook); /git-safety:commit-queue hands commits back as a verified queue"
     },
     {
@@ -40,7 +40,7 @@
     {
       "name": "statusline",
       "source": "./plugins/statusline",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "description": "Managed Claude Code status line: /statusline:install wires it up once, a SessionStart hook keeps it in step with plugin updates"
     },
     {
@@ -52,7 +52,7 @@
     {
       "name": "delegation",
       "source": "./plugins/delegation",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Pins cheaper model aliases onto blank-model subagent dispatches per environment, ships six delegation agents, and reports what each subagent ran on; /delegation:configure sets pins and alias-to-model mappings once per machine"
     }
   ]

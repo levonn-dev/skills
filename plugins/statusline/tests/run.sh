@@ -52,8 +52,8 @@ setup; printf '#!/usr/bin/env bash\n# %s\necho old\n' "$MARKER" > "$tmp/target";
 check "marked_stale_target_updated" "$(cmp -s "$tmp/root/bin/statusline.sh" "$tmp/target" && echo 1 || echo 0)"
 
 # 4. Marked target already identical: left as is.
-setup; cp "$tmp/root/bin/statusline.sh" "$tmp/target"; touch -d '2000-01-01' "$tmp/target"; run
-check "identical_target_not_rewritten" "$([ "$(stat -c %Y "$tmp/target")" = "$(date -d '2000-01-01' +%s)" ] && echo 1 || echo 0)"
+setup; cp "$tmp/root/bin/statusline.sh" "$tmp/target"; touch -t 200001010000 "$tmp/target" "$tmp/ref"; run
+check "identical_target_not_rewritten" "$([ ! "$tmp/target" -nt "$tmp/ref" ] && echo 1 || echo 0)"
 
 # 5. Source missing (broken install): nothing happens, exit 0.
 setup; rm "$tmp/root/bin/statusline.sh"; printf '# %s\necho old\n' "$MARKER" > "$tmp/target"; run; rc=$?

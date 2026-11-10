@@ -51,7 +51,8 @@ read_base() {
 base=""
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   cache="${STATUSLINE_CACHE_DIR:-${TMPDIR:-/tmp}}/statusline-base.$(basename "$transcript" .jsonl)"
-  tsize=$(stat -c %s "$transcript" 2>/dev/null || echo 0)
+  # wc, not stat: the stat size option differs between GNU and BSD.
+  tsize=$(( $(wc -c 2>/dev/null < "$transcript") + 0 ))
   scanned=0
   [ -f "$cache" ] && read -r base scanned < "$cache"
   if [ -n "$base" ] && { [ "$tsize" -lt "$scanned" ] || tail -c +$((scanned + 1)) "$transcript" | grep -qE '"subtype":"compact_boundary"|"isCompactSummary":true'; }; then
@@ -224,8 +225,8 @@ if git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
     echo "$gitstatus"    | grep -q "^R"      && bits=">${bits}"
     echo "$gitstatus"    | grep -q "^A"      && bits="+${bits}"
     echo "$gitstatus"    | grep -q "^??"     && bits="?${bits}"
-    echo "$gitstatus"    | grep -q "^.D\|^D" && bits="-${bits}"
-    echo "$gitstatus"    | grep -q "^.M\|^M" && bits="!${bits}"
+    echo "$gitstatus"    | grep -qE "^.D|^D" && bits="-${bits}"
+    echo "$gitstatus"    | grep -qE "^.M|^M" && bits="!${bits}"
 
     if [ -n "$bits" ]; then
       git_str="${ESC}[38;2;255;120;120m[${BRANCH} ${bits}]${ESC}[0m"

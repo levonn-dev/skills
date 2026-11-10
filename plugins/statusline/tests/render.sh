@@ -53,7 +53,7 @@ payload() {
   printf '{"workspace":{"current_dir":"%s"},"model":{"display_name":"Test"},"transcript_path":"%s","context_window":{"context_window_size":200000,"current_usage":{"input_tokens":32,"cache_creation_input_tokens":1205,"cache_read_input_tokens":59212},"used_percentage":%s}}' "$tmp" "$1" "${2:-30.2}"
 }
 
-render() { "$SCRIPT" | sed 's/\x1b\[[0-9;]*m//g'; }
+render() { "$SCRIPT" | sed $'s/\033\\[[0-9;]*m//g'; }
 
 # 1 when every needle appears in the haystack in the given order.
 in_order() {
@@ -75,6 +75,8 @@ lines_within() {
   echo 1
 }
 cache_of() { printf '%s/cache/statusline-base.%s' "$tmp" "$(basename "$1" .jsonl)"; }
+# Byte size as a bare number: wc pads its output on BSD.
+size_of() { echo $(( $(wc -c < "$1") )); }
 
 # 1. Base comes from the first assistant turn; chat is the growth since.
 { assistant 2 18391 26445; assistant 32 1205 59212; } > "$tmp/t.jsonl"
@@ -85,7 +87,22 @@ check "numbers_before_percentages_with_split" "$([[ "$out" == *"60k/200k 30%  ba
 raw="$(payload "$tmp/t.jsonl" | "$SCRIPT")"
 base_segments="$(printf '%s' "$raw" | grep -oF "${BASE_COLOR}█" | wc -l)"
 gradient_segments="$(printf '%s' "$raw" | grep -oE $'\033\\[38;2;[0-9]+;[0-9]+;0m█' | wc -l)"
-check "bar_stacks_base_then_chat" "$([ "$base_segments" = "4" ] && [ "$gradient_segments" = "2" ] && echo 1 || echo 0)"
+check "bar_stacks_base_then_chat" "$([ "$base_segments" -eq 4 ] && [ "$gradient_segments" -eq 2 ] && echo 1 || echo 0)"
+
+# Git dirty bits, read from a stub git that reports one deleted and one staged-modified file.
+mkdir -p "$tmp/gitbin"
+cat > "$tmp/gitbin/git" <<'STUB'
+#!/bin/sh
+case "$*" in
+  *rev-parse*) exit 0 ;;
+  *"status --branch"*) echo "## main...origin/main" ;;
+  *status*) printf ' D gone.txt\nM  staged.txt\n' ;;
+  *branch*) echo "* main" ;;
+esac
+STUB
+chmod +x "$tmp/gitbin/git"
+out="$(payload "$tmp/t.jsonl" | PATH="$tmp/gitbin:$PATH" render)"
+check "git_bits_deleted_and_modified" "$([[ "$out" == *"[main !-]"* ]] && echo 1 || echo 0)"
 
 # 3. After a compaction the base is the first turn after the boundary.
 { assistant 2 18391 26445; compaction; assistant 0 30000 0; } > "$tmp/c.jsonl"
@@ -118,24 +135,24 @@ check "boundary_without_reply_totals_only" "$([[ "$out" == *"60k/200k 30%"* ]] &
 # 9. A render caches the base with the transcript size it scanned up to.
 { assistant 2 18391 26445; assistant 32 1205 59212; } > "$tmp/cw.jsonl"
 payload "$tmp/cw.jsonl" | render > /dev/null
-check "cache_written" "$([ "$(cat "$(cache_of "$tmp/cw.jsonl")" 2>/dev/null)" = "44838 $(stat -c %s "$tmp/cw.jsonl")" ] && echo 1 || echo 0)"
+check "cache_written" "$([ "$(cat "$(cache_of "$tmp/cw.jsonl")" 2>/dev/null)" = "44838 $(size_of "$tmp/cw.jsonl")" ] && echo 1 || echo 0)"
 
 # 10. A cached base is used without re-reading the transcript.
 { assistant 2 18391 26445; assistant 32 1205 59212; } > "$tmp/cr.jsonl"
-printf '20000 %s\n' "$(stat -c %s "$tmp/cr.jsonl")" > "$(cache_of "$tmp/cr.jsonl")"
+printf '20000 %s\n' "$(size_of "$tmp/cr.jsonl")" > "$(cache_of "$tmp/cr.jsonl")"
 out="$(payload "$tmp/cr.jsonl" | render)"
 check "cached_base_used" "$([[ "$out" == *"base 20k 10%  chat 40k 20%"* ]] && echo 1 || echo 0)"
 
 # 11. Growth without a compaction keeps the cached base and advances the scanned size.
 assistant 2 18391 26445 > "$tmp/cg.jsonl"
-printf '20000 %s\n' "$(stat -c %s "$tmp/cg.jsonl")" > "$(cache_of "$tmp/cg.jsonl")"
+printf '20000 %s\n' "$(size_of "$tmp/cg.jsonl")" > "$(cache_of "$tmp/cg.jsonl")"
 assistant 32 1205 59212 >> "$tmp/cg.jsonl"
 out="$(payload "$tmp/cg.jsonl" | render)"
-check "growth_keeps_cached_base" "$([[ "$out" == *"base 20k 10%"* ]] && [ "$(cat "$(cache_of "$tmp/cg.jsonl")")" = "20000 $(stat -c %s "$tmp/cg.jsonl")" ] && echo 1 || echo 0)"
+check "growth_keeps_cached_base" "$([[ "$out" == *"base 20k 10%"* ]] && [ "$(cat "$(cache_of "$tmp/cg.jsonl")")" = "20000 $(size_of "$tmp/cg.jsonl")" ] && echo 1 || echo 0)"
 
 # 12. A compaction appended after the scanned size invalidates the cached base.
 assistant 2 18391 26445 > "$tmp/ci.jsonl"
-printf '20000 %s\n' "$(stat -c %s "$tmp/ci.jsonl")" > "$(cache_of "$tmp/ci.jsonl")"
+printf '20000 %s\n' "$(size_of "$tmp/ci.jsonl")" > "$(cache_of "$tmp/ci.jsonl")"
 { compaction; assistant 0 30000 0; } >> "$tmp/ci.jsonl"
 out="$(payload "$tmp/ci.jsonl" | render)"
 check "compaction_invalidates_cache" "$([[ "$out" == *"base 30k 15%  chat 30k 15%"* ]] && echo 1 || echo 0)"
@@ -156,7 +173,7 @@ check "model_color_distinct_from_base" "$([[ "$raw" == *"${MODEL_COLOR}Test"* ]]
 
 # 17. Wide terminal: everything on one line.
 out="$(payload "$tmp/t.jsonl" | COLUMNS=200 render)"
-check "wide_terminal_single_line" "$([ "$(printf '%s\n' "$out" | wc -l)" = "1" ] && echo 1 || echo 0)"
+check "wide_terminal_single_line" "$([ "$(printf '%s\n' "$out" | wc -l)" -eq 1 ] && echo 1 || echo 0)"
 
 # 18. Narrow terminal: sections wrap onto further lines, each within the width
 # minus a two-column margin, in their original order, none starting with a separator.
@@ -173,7 +190,7 @@ check "oversized_section_own_line" "$(printf '%s\n' "$out" | grep -qxF '██�
 
 # 20. No COLUMNS in the environment: one line, as when the width is unknown.
 out="$(payload "$tmp/t.jsonl" | render)"
-check "unknown_width_single_line" "$([ "$(printf '%s\n' "$out" | wc -l)" = "1" ] && echo 1 || echo 0)"
+check "unknown_width_single_line" "$([ "$(printf '%s\n' "$out" | wc -l)" -eq 1 ] && echo 1 || echo 0)"
 
 # ── Prompt cache section ───────────────────────────────────────────────────────
 CACHE_GREEN=$'\033[38;2;120;220;120m'
@@ -206,7 +223,7 @@ check "cache_word_yellow_under_quarter_1h" "$([[ "$raw" == *"${CACHE_YELLOW}cach
 
 # 25. Cold: grey, text intact.
 raw="$(cache_payload "$(pc false 5m "" 0.91 112000)" | "$SCRIPT")"
-check "cache_word_grey_when_cold" "$([[ "$raw" == *"${CACHE_GREY}cache"* ]] && [[ "$(printf '%s' "$raw" | sed 's/\x1b\[[0-9;]*m//g')" == *"cache 5m 112k 91%"* ]] && echo 1 || echo 0)"
+check "cache_word_grey_when_cold" "$([[ "$raw" == *"${CACHE_GREY}cache"* ]] && [[ "$(printf '%s' "$raw" | sed $'s/\033\\[[0-9;]*m//g')" == *"cache 5m 112k 91%"* ]] && echo 1 || echo 0)"
 
 # 26. Warm flag still set but the expiry has passed: grey.
 raw="$(cache_payload "$(pc true 5m $((now - 5)) 0.91 112000)" | "$SCRIPT")"

@@ -48,9 +48,9 @@ compaction() {
 }
 
 # Payload with 60449 tokens in a 200k window, used_percentage 30.2 unless given;
-# cwd is the temp dir so git stays out.
+# cwd is the temp dir, or the third argument, so git stays out.
 payload() {
-  printf '{"workspace":{"current_dir":"%s"},"model":{"display_name":"Test"},"transcript_path":"%s","context_window":{"context_window_size":200000,"current_usage":{"input_tokens":32,"cache_creation_input_tokens":1205,"cache_read_input_tokens":59212},"used_percentage":%s}}' "$tmp" "$1" "${2:-30.2}"
+  printf '{"workspace":{"current_dir":"%s"},"model":{"display_name":"Test"},"transcript_path":"%s","context_window":{"context_window_size":200000,"current_usage":{"input_tokens":32,"cache_creation_input_tokens":1205,"cache_read_input_tokens":59212},"used_percentage":%s}}' "${3:-$tmp}" "$1" "${2:-30.2}"
 }
 
 render() { "$SCRIPT" | sed $'s/\033\\[[0-9;]*m//g'; }
@@ -67,9 +67,12 @@ in_order() {
 }
 
 # 1 when every line of the stripped output is at most the given width.
+# Counts UTF-8 characters by dropping continuation bytes, so the locale the
+# suite runs under does not change the answer.
 lines_within() {
-  local width="$1" line
+  local width="$1" line LC_ALL=C
   while IFS= read -r line; do
+    line="${line//[$'\200'-$'\277']/}"
     [ "${#line}" -le "$width" ] || { echo 0; return; }
   done <<< "$2"
   echo 1
@@ -171,17 +174,21 @@ check "chat_word_green_when_bar_empty" "$([[ "$raw" == *$'\033[38;2;0;255;0mchat
 # 16. Model text is not in the base color.
 check "model_color_distinct_from_base" "$([[ "$raw" == *"${MODEL_COLOR}Test"* ]] && echo 1 || echo 0)"
 
+# The wrap checks use a short directory that does not exist: a temp path can
+# be wider than the narrow terminal on its own, as it is on macOS.
+WRAP_CWD=/nonexistent/wrap
+
 # 17. Wide terminal: everything on one line.
-out="$(payload "$tmp/t.jsonl" | COLUMNS=200 render)"
+out="$(payload "$tmp/t.jsonl" "" "$WRAP_CWD" | COLUMNS=200 render)"
 check "wide_terminal_single_line" "$([ "$(printf '%s\n' "$out" | wc -l)" -eq 1 ] && echo 1 || echo 0)"
 
 # 18. Narrow terminal: sections wrap onto further lines, each within the width
 # minus a two-column margin, in their original order, none starting with a separator.
-out="$(payload "$tmp/t.jsonl" | COLUMNS=60 render)"
+out="$(payload "$tmp/t.jsonl" "" "$WRAP_CWD" | COLUMNS=60 render)"
 joined="$(printf '%s' "$out" | tr '\n' ' ')"
 check "narrow_terminal_wraps_sections" "$([ "$(printf '%s\n' "$out" | wc -l)" -ge 2 ] \
   && [ "$(lines_within 58 "$out")" = "1" ] \
-  && [ "$(in_order "$joined" "Test" "60k/200k 30%" "base 45k 22%" "chat 16k 8%" "$tmp")" = "1" ] \
+  && [ "$(in_order "$joined" "Test" "60k/200k 30%" "base 45k 22%" "chat 16k 8%" "$WRAP_CWD")" = "1" ] \
   && ! printf '%s\n' "$out" | grep -qE '^( |│)' && echo 1 || echo 0)"
 
 # 19. A section wider than the screen sits on its own line and overflows.

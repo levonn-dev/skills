@@ -1,0 +1,1 @@
+{"tool_input":{"command":"git clone --depth 1 https://github.com/a/b /tmp/git-safety-clone/b 2>&1 | tail -3"}}

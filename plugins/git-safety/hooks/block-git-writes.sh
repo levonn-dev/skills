@@ -27,15 +27,129 @@ if [ -z "$command" ]; then
 fi
 
 # ---- subcommand classification ----
-ALWAYS_BLOCK_RE='^(add|am|apply|checkout|cherry-pick|clean|clone|commit|fetch|filter-branch|filter-repo|format-patch|gc|init|merge|mv|pack-refs|prune|pull|push|rebase|repack|replace|request-pull|reset|restore|revert|rm|send-email|switch|update-index|update-ref|worktree|write-tree|bisect|daemon|mailinfo|mailsplit|sparse-checkout|fast-import|p4|svn|bundle)$'
+ALWAYS_BLOCK_RE='^(add|am|apply|checkout|cherry-pick|clean|commit|fetch|filter-branch|filter-repo|format-patch|gc|init|merge|mv|pack-refs|prune|pull|push|rebase|repack|replace|request-pull|reset|restore|revert|rm|send-email|switch|update-index|update-ref|worktree|write-tree|bisect|daemon|mailinfo|mailsplit|sparse-checkout|fast-import|p4|svn|bundle)$'
 
 CONDITIONAL_RE='^(branch|tag|remote|stash|config|submodule|notes|reflog)$'
+
+# What a plain argument may hold. Anything else (an expansion, a substitution,
+# a glob, a brace, a quote, an escape, a comment) can change the argument list
+# git receives in ways this hook cannot read.
+PLAIN_TOKEN_RE='^[A-Za-z0-9._/:@+%=-]+$'
+
+# A config key as written bare on a command line: section.name or
+# section.subsection.name.
+CONFIG_KEY_RE='^[A-Za-z][A-Za-z0-9-]*\.([A-Za-z0-9_./:@+-]*\.)?[A-Za-z][A-Za-z0-9-]*$'
+CONFIG_READ_FLAG_RE='^(--global|--local|--system|--worktree|-z|--null|--show-origin|--show-scope|--includes|--no-includes|--type=[a-z-]+|--bool|--int|--bool-or-int|--path|--expiry-date)$'
+
+# Clone flags that cannot move where the clone lands, and those that take a
+# separate value. Any other flag denies the clone.
+CLONE_FLAG_RE='^(-q|--quiet|-v|--verbose|--progress|-n|--no-checkout|--bare|--mirror|--single-branch|--no-single-branch|--no-tags|--recurse-submodules|--recursive|--shallow-submodules|--no-shallow-submodules|--sparse|--depth=[0-9]+|--branch=[^[:space:]]+|--filter=[^[:space:]]+|--jobs=[0-9]+)$'
+CLONE_VALUE_FLAG_RE='^(--depth|-b|--branch|--filter|-j|--jobs)$'
+CLONE_TARGET_RE='^(/[A-Za-z0-9._+-]+)+/?$'
+DOT_SEGMENT_RE='(^|/)\.\.?(/|$)'
 
 # ---- helpers ----
 
 deny() {
   echo "git-safety blocked: 'git $1 ...' modifies repo state. Run it yourself if intended." >&2
   exit 2
+}
+
+deny_clone() {
+  echo "git-safety blocked: 'git clone' is allowed only as 'git clone [flags] <repository> <absolute target>' with the target outside every git repository. Run it yourself if intended." >&2
+  exit 2
+}
+
+# The arguments of a simple command with its redirections removed, or failure
+# when a token is not plain or a redirection lacks a plain target. A rule that
+# allows a command by its exact arguments must read them through this: a
+# process substitution, a continued line or a `>|` would otherwise hide an
+# argument from the count.
+plain_args() {
+  local redirect='^(&|[0-9]*)[<>]' bare='^(&|[0-9]*)[<>&]+$' attached='^(&|[0-9]*)[<>&]+(.*)$'
+  local out="" want_target=0 tok
+  local -a toks
+  read -ra toks <<< "$1"
+  for tok in ${toks[@]+"${toks[@]}"}; do
+    if [ "$want_target" = 1 ]; then
+      [[ "$tok" =~ $PLAIN_TOKEN_RE ]] || return 1
+      want_target=0
+      continue
+    fi
+    if [[ "$tok" =~ $redirect ]]; then
+      if [[ "$tok" =~ $bare ]]; then
+        want_target=1
+        continue
+      fi
+      [[ "$tok" =~ $attached ]] && [[ "${BASH_REMATCH[2]}" =~ $PLAIN_TOKEN_RE ]] || return 1
+      continue
+    fi
+    [[ "$tok" =~ $PLAIN_TOKEN_RE ]] || return 1
+    out+="$tok "
+  done
+  [ "$want_target" = 0 ] || return 1
+  printf '%s' "$out"
+}
+
+count_positionals() {
+  local n=0 tok
+  for tok in $1; do
+    case "$tok" in
+      -*) ;;
+      *) n=$((n + 1)) ;;
+    esac
+  done
+  printf '%s' "$n"
+}
+
+# True when no directory from the path's nearest existing ancestor up to the
+# root is a working tree or a git dir. Symlinks are resolved first, so a link
+# into a repository counts as inside it. Only an absolute path can be judged.
+outside_any_repo() {
+  local d="$1"
+  [[ "$d" == /* ]] || return 1
+  while [ ! -d "$d" ]; do
+    d="${d%/*}"
+    [ -z "$d" ] && d=/
+  done
+  d="$(cd "$d" 2>/dev/null && pwd -P)" || return 1
+  while :; do
+    if [ -e "$d/.git" ] || { [ -f "$d/HEAD" ] && [ -d "$d/objects" ] && [ -d "$d/refs" ]; }; then
+      return 1
+    fi
+    [ "$d" = "/" ] && return 0
+    d="${d%/*}"
+    [ -z "$d" ] && d=/
+  done
+}
+
+# clone changes no existing repository when it lands outside all of them, so
+# one shape is allowed: `git clone [flags] <repository> <absolute target>`.
+# No target, a relative or expanded one, or an unknown flag could put the
+# clone in a working tree.
+is_clone_outside_repos() {
+  local args tok want_value=0 target
+  local -a toks pos=()
+  args=$(plain_args "$1") || return 1
+  read -ra toks <<< "$args"
+  for tok in ${toks[@]+"${toks[@]}"}; do
+    if [ "$want_value" = 1 ]; then want_value=0; continue; fi
+    case "$tok" in
+      -*)
+        if [[ "$tok" =~ $CLONE_VALUE_FLAG_RE ]]; then
+          want_value=1
+        elif ! [[ "$tok" =~ $CLONE_FLAG_RE ]]; then
+          return 1
+        fi
+        ;;
+      *) pos+=("$tok") ;;
+    esac
+  done
+  [ "${#pos[@]}" -eq 2 ] || return 1
+  target="${pos[1]}"
+  [[ "$target" =~ $CLONE_TARGET_RE ]] || return 1
+  if [[ "$target" =~ $DOT_SEGMENT_RE ]]; then return 1; fi
+  outside_any_repo "$target"
 }
 
 has_flag() {
@@ -103,16 +217,26 @@ is_conditional_read_mode() {
       if has_flag "$args" '^(--add|--unset|--unset-all|--replace-all|--rename-section|--remove-section|--edit|-e)$'; then
         return 1
       fi
-      if has_flag "$args" '^(--get|--get-all|--get-regexp|--get-urlmatch|-l|--list|--show-origin|--show-scope)$'; then
-        local positional=0
-        for tok in $args; do
-          case "$tok" in
-            -*) ;;
-            *) positional=$((positional + 1)) ;;
-          esac
-        done
-        if [ "$positional" -le 1 ]; then return 0; else return 1; fi
+      local plain positional=0 key=""
+      # Only the query actions: a display flag such as --show-origin beside a
+      # key and a value is still a write.
+      if has_flag "$args" '^(--get|--get-all|--get-regexp|--get-urlmatch|-l|--list)$'; then
+        if [ "$(count_positionals "$args")" -le 1 ]; then return 0; fi
+        # The same rule with plain redirections set aside: `--get key 2>/dev/null`.
+        if plain=$(plain_args "$args") && [ "$(count_positionals "$plain")" -le 1 ]; then return 0; fi
+        return 1
       fi
+      # A lone key with no value reads it: `git config --global user.name`.
+      # Only scope and display flags may ride along, so a bundled or unknown
+      # flag cannot turn the read into an edit.
+      plain=$(plain_args "$args") || return 1
+      for tok in $plain; do
+        case "$tok" in
+          -*) [[ "$tok" =~ $CONFIG_READ_FLAG_RE ]] || return 1 ;;
+          *) positional=$((positional + 1)); key="$tok" ;;
+        esac
+      done
+      if [ "$positional" -eq 1 ] && [[ "$key" =~ $CONFIG_KEY_RE ]]; then return 0; fi
       return 1
       ;;
     submodule)
@@ -166,6 +290,20 @@ walk_past_flags() {
   done
 }
 
+# The subcommand's own arguments: what follows it up to the end of its
+# simple command.
+command_args() {
+  local a="${1#"$2"}"
+  a="${a#"${a%%[![:space:]]*}"}"
+  a="${a%%&&*}"
+  a="${a%%||*}"
+  a="${a%%;*}"
+  a="${a%%|*}"
+  a="${a%%$'\n'*}"
+  a="${a%%)*}"
+  printf '%s' "$a"
+}
+
 scan_for_git() {
   local s="$1" line offset prev rest after subcmd args_after
   while IFS= read -r line; do
@@ -187,15 +325,19 @@ scan_for_git() {
     if [[ "$subcmd" =~ $ALWAYS_BLOCK_RE ]]; then
       deny "$subcmd"
     fi
+    if [ "$subcmd" = clone ]; then
+      # A global flag or a git environment variable can move the work tree
+      # away from the target, so clone is judged only when it stands bare.
+      if [ "$after" != "${rest#"${rest%%[![:space:]]*}"}" ] || [[ "$s" == *GIT_* ]]; then
+        deny_clone
+      fi
+      if ! is_clone_outside_repos "$(command_args "$after" "$subcmd")"; then
+        deny_clone
+      fi
+      continue
+    fi
     if [[ "$subcmd" =~ $CONDITIONAL_RE ]]; then
-      args_after="${after#"$subcmd"}"
-      args_after="${args_after#"${args_after%%[![:space:]]*}"}"
-      args_after="${args_after%%&&*}"
-      args_after="${args_after%%||*}"
-      args_after="${args_after%%;*}"
-      args_after="${args_after%%|*}"
-      args_after="${args_after%%$'\n'*}"
-      args_after="${args_after%%)*}"
+      args_after=$(command_args "$after" "$subcmd")
       if ! is_conditional_read_mode "$subcmd" "$args_after"; then
         deny "$subcmd"
       fi

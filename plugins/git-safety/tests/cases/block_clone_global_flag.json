@@ -1,0 +1,1 @@
+{"tool_input":{"command":"git --work-tree=/tmp/w clone https://github.com/a/b /tmp/git-safety-clone/b"}}

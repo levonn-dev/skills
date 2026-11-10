@@ -1,0 +1,1 @@
+{"tool_input":{"command":"git clone -b $B https://github.com/a/b /tmp/git-safety-clone/b"}}

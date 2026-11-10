@@ -1,0 +1,1 @@
+{"tool_input":{"command":"mkdir -p /tmp/git-safety-clone && git clone -q --branch main https://github.com/a/b /tmp/git-safety-clone/b && ls /tmp/git-safety-clone/b"}}

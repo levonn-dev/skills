@@ -6,6 +6,10 @@
 # Filename convention:
 #   allow_<name>.json  -> expects exit 0 (allow)
 #   block_<name>.json  -> expects exit 2 (deny)
+#
+# __FIX__ in a case is replaced with a fixture directory holding a working
+# tree (repo/), a bare git dir (bare/), a symlink into the tree (link) and a
+# plain directory (plain/), for the cases about where a clone may land.
 
 set -uo pipefail
 
@@ -17,6 +21,12 @@ if [ ! -x "$HOOK" ]; then
   echo "ERROR: hook not found or not executable: $HOOK" >&2
   exit 1
 fi
+
+FIX="$(mktemp -d)"
+trap 'rm -rf "$FIX"' EXIT
+mkdir -p "$FIX/repo/.git" "$FIX/repo/sub" "$FIX/bare/objects" "$FIX/bare/refs" "$FIX/plain"
+: > "$FIX/bare/HEAD"
+ln -s "$FIX/repo/sub" "$FIX/link"
 
 pass=0
 fail=0
@@ -35,7 +45,7 @@ for f in "$CASES_DIR"/*.json; do
       continue
       ;;
   esac
-  actual_stderr=$(bash "$HOOK" < "$f" 2>&1 >/dev/null)
+  actual_stderr=$(sed "s|__FIX__|$FIX|g" "$f" | bash "$HOOK" 2>&1 >/dev/null)
   actual=$?
   if [ "$actual" = "$expected" ]; then
     pass=$((pass + 1))

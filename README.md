@@ -22,7 +22,7 @@ Every plugin supports Linux and macOS. On macOS the tools it ships are enough: b
 - The hooks need `jq`. Install it with `brew install jq` if your macOS does not ship it.
 - delegation writes through a symlinked `settings.json` where `readlink -f` exists (macOS 12.3 or later). Elsewhere it replaces the link with a regular file.
 
-CI runs every hook suite on Ubuntu and on macOS, there once with the stock tools first on the `PATH` and once with Homebrew's.
+CI runs every hook suite on Ubuntu and on macOS, there once with the stock bash and once with Homebrew bash.
 
 ## Install
 

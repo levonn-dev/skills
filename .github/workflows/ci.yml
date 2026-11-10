@@ -78,8 +78,8 @@ jobs:
           exit $rc
 
   # Every plugin supports macOS as well as Linux. The hook suites run there
-  # with the stock tools first (bash 3.2, BSD utilities, Apple awk), and again
-  # with the runner's own PATH, where Homebrew bash comes first.
+  # on the stock tools (bash 3.2, BSD utilities, Apple awk), and again with
+  # Homebrew bash, which the runner image does not carry, installed first.
   macos:
     runs-on: macos-latest
     strategy:
@@ -94,12 +94,26 @@ jobs:
           set -uo pipefail
           if [ "${{ matrix.tools }}" = stock ]; then
             export PATH="/bin:/usr/bin:$PATH"
+          else
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install bash
+            export PATH="$(brew --prefix)/bin:$PATH"
           fi
           bash --version | head -1
+          # A job that is not running the bash its name claims proves nothing.
+          major="$(bash -c 'echo "${BASH_VERSINFO[0]}"')"
+          case "${{ matrix.tools }}:$major" in
+            stock:3|homebrew:[5-9]) ;;
+            *) echo "::error::the ${{ matrix.tools }} job is running bash $major"; exit 1 ;;
+          esac
           rc=0
           for suite in plugins/*/tests/*.sh; do
             echo "::group::$suite"
-            bash "$suite" || rc=1
+            if ! out="$(bash "$suite" 2>&1)"; then
+              rc=1
+              # Failing checks as an annotation, readable without opening the log.
+              echo "::error title=$suite::$(printf '%s\n' "$out" | grep -i 'fail' | tr '\n' ' ')"
+            fi
+            printf '%s\n' "$out"
             echo "::endgroup::"
           done
           exit $rc
